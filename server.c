@@ -26,6 +26,7 @@ int main(){
         }
         if(pid == 0){
             // Processo figlio
+            close(serverSock.socketfd); // Chiudiamo il socket del server nel processo figlio
             printf("Nuova connessione accettata, creando processo figlio...\n");
 
             //TODO login
