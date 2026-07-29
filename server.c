@@ -29,6 +29,9 @@ int main(){
             close(serverSock.socketfd); // Chiudiamo il socket del server nel processo figlio
             printf("Nuova connessione accettata, creando processo figlio...\n");
 
+            //scelta iniziale
+            int scelta;
+
             //TODO login
             //1) ricevi username e password dal client
             //2) verifica le credenziali
