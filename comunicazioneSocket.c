@@ -57,5 +57,7 @@ SocketInfo inizializzaSocketClient(){
         exit(EXIT_FAILURE);
     }
 
+    printf("Connessione al server avvenuta con successo!\n");
+
     return socketInfo;
 }
