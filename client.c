@@ -2,11 +2,7 @@
 #include <stdlib.h>
 #include "comunicazioneSocket.h"
 #include <string.h>
-
-#define MAX_USER_LEN  10
-#define MAX_PASS_LEN  20
-
-#define PACKET_SIZE   (1 + MAX_USER_LEN + MAX_PASS_LEN + 2 + 1)
+#include "protocollo_login.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, int scelta);
 
@@ -58,6 +54,6 @@ void loginOrRegistrazione(SocketInfo clientSock, int scelta){
     snprintf(pacchetto, sizeof(pacchetto), "%d-%s-%s", scelta, username, password);
 
     // Invia i dati al server
-    //TODO inviare il pacchetto al server utilizzando send() o write()
+    write(clientSock.socketfd, pacchetto, strlen(pacchetto));
 
 }
