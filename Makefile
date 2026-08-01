@@ -1,13 +1,17 @@
 CC = gcc
-CFLAGS =
 
 all: client server
 
-client: client.c comunicazioneSocket.c
-	$(CC) $(CFLAGS) -o client client.c comunicazioneSocket.c
+client: client.o comunicazioneSocket.o
+	$(CC) -o $@ $^
 
-server: server.c comunicazioneSocket.c
-	$(CC) $(CFLAGS) -o server server.c comunicazioneSocket.c
+server: server.o comunicazioneSocket.o gestione_login.o myfile.o
+	$(CC) -o $@ $^
+
+%.o: %.c
+	$(CC) -c -o $@ $<
 
 clean:
-	rm -f client server
+	rm -f client server *.o
+
+.PHONY: all clean

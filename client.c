@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "comunicazioneSocket.h"
 #include <string.h>
 #include "protocollo_login.h"
@@ -37,6 +38,10 @@ int main(){
             close(clientSock.socketfd);
             exit(EXIT_SUCCESS);
     }
+
+    char buffer[PACKET_SIZE];
+    read(clientSock.socketfd, buffer, sizeof(buffer));
+    printf("Risposta dal server: %s\n", buffer);
     
     return 0;
 }

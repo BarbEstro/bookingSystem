@@ -3,7 +3,9 @@
 
 #define UTENTI_FILE "utenti.txt"
 
+#include <stdbool.h>
+
 int verificaCredenziali(const char *username, const char *password);
-int registraUtente(const char *username, const char *password, int isAdmin);
+bool registraUtente(const char *username, const char *password, int isAdmin);
 
 #endif

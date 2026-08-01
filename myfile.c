@@ -6,7 +6,6 @@
 
 FILE* aprireFile(const char* nome_file, const char* mod) {
     FILE* file = fopen(nome_file, mod);
-
     return file; 
 }
 

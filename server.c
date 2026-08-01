@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include "comunicazioneSocket.h"
 #include <unistd.h>
+#include "protocollo_login.h"
+#include "gestione_login.h"
+
+static int gestione_utenza(const char* username, const char* password, int scelta);
 
 int main(){
 
@@ -29,12 +33,23 @@ int main(){
             close(serverSock.socketfd); // Chiudiamo il socket del server nel processo figlio
             printf("Nuova connessione accettata, creando processo figlio...\n");
 
-            //scelta iniziale
-            int scelta;
+            char buffer[PACKET_SIZE];
+            read(currentSocketfd, buffer, sizeof(buffer));
 
-            //TODO login
-            //1) ricevi username e password dal client
-            //2) verifica le credenziali
+            char username[MAX_USER_LEN + 1];
+            char password[MAX_PASS_LEN + 1];
+            int scelta;
+            sscanf(buffer, "%d-%[^-]-%[^-]", &scelta, username, password);
+
+            int risultato = gestione_utenza(username, password, scelta);
+            if (risultato == 1) {
+                // Login o registrazione riuscita
+                write(currentSocketfd, "SUCCESS", 7);
+            } else {
+                // Login o registrazione fallita
+                write(currentSocketfd, "FAILURE", 7);
+            }
+
             //3) invia la risposta al client (successo o fallimento)
 
             //TODO gestione della comunicazione con il client (menù delle operazioni, ecc.)
@@ -50,4 +65,8 @@ int main(){
         }
 
     }
+}
+
+static int gestione_utenza(const char* username, const char* password, int scelta) {
+    //TODO fare l'implementazione
 }
