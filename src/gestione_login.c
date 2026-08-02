@@ -1,61 +1,98 @@
 #include "gestione_login.h"
-#include "myfile.h"
 #include "protocollo_login.h"
 #include <stdbool.h>
 #include <string.h>
+#include "booking_system_struct.h"
+#include <unistd.h>
 
 static bool controllo_username(const char* username);
+static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
+static char* crea_path_file_username(char* path, int size);
 
-int verificaCredenziali(const char *username, const char *password) {
-    FILE* file = aprireFile(UTENTI_FILE, "r");
-    char buffer[PACKET_SIZE];
-    int risultato = -1;
-    while(leggereRigaFile(file, buffer, sizeof(buffer))) {
-        char fileUsername[MAX_USER_LEN + 1];
-        char filePassword[MAX_PASS_LEN + 1];
-        int isAdmin;
-        sscanf(buffer, "%d-%[^-]-%[^-]", &isAdmin, fileUsername, filePassword);
-        if(strcmp(username, fileUsername) == 0 && strcmp(password, filePassword) == 0) {
-            risultato = isAdmin; // Ritorna 1 se è admin, 0 altrimenti
-            break;
-        }
+utente_t* crea_utente(const char *username, const char *password, bool isAdmin) {
+    utente_t* nuovo_utente = malloc(sizeof(utente_t));
+    if (nuovo_utente == NULL) {
+        return NULL; // Errore di allocazione
     }
-    chiusuraFile(file);
-    return risultato; // Credenziali non valide
+    strncpy(nuovo_utente->username, username, MAX_USER_LEN);
+    strncpy(nuovo_utente->password, password, MAX_PASS_LEN);
+    nuovo_utente->isAdmin = isAdmin;
+    nuovo_utente->file_path_prenotazioni = NULL; // Inizializza a NULL o a un valore appropriato
+
+    return nuovo_utente;
 }
 
-bool registraUtente(const char *username, const char *password, int isAdmin) {
-    FILE* file = aprireFile(UTENTI_FILE, "a");
-    char nuova_utenza[PACKET_SIZE];
-    snprintf(nuova_utenza, sizeof(nuova_utenza), "%d-%s-%s\n",isAdmin, username,password);
-    if(controllo_username(nuova_utenza)){
-        return false;
+utente_t* verificaCredenziali(const char *username, const char *password) {
+    char primo_carattere = username[0];
+    char path[32];
+    if (verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
+        FILE* file = fopen(path, "rb");
+        while (file != NULL) {
+            utente_t* utente = malloc(sizeof(utente_t));
+            if (fread(utente, sizeof(utente_t), 1, file) == 1) {
+                if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
+                    fclose(file);
+                    return utente; // Credenziali corrette
+                }
+            }
+            free(utente);
+        }
+        fclose(file);
     }
+    
+    return NULL; // Credenziali non valide
 
-    if(!scritturaFile(file, nuova_utenza)){
-        chiusuraFile(file);
-        return false;
+}
+
+bool registraUtente(utente_t* utente) {
+    bool esito = true;
+    char primo_carattere = utente->username[0];
+    char path[32];
+    if(!verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
+        crea_path_file_username(path, sizeof(path));
+    }
+    FILE* file = aprireFile(path, "rb");
+    size_t written = fwrite(utente, sizeof(utente_t), 1, file);
+    if (written != 1) {
+        esito = false; // Errore durante la scrittura
     }
 
     chiusuraFile(file);
 
-    return true;
+    return esito;
 }
 
 static bool controllo_username(const char* username){
     bool esito = false;
-    FILE* file = aprireFile(UTENTI_FILE,"r");
-    char buffer[PACKET_SIZE];
-    while(leggereRigaFile(file,buffer, sizeof(buffer))){
-        char fileUsername[MAX_USER_LEN + 1];
-        sscanf(buffer, "%*d-%[^-]", fileUsername);
-        if(strcmp(username,fileUsername) == 0){
-            chiusuraFile(file);
-            esito = true;
-            break;
+    char primo_carattere = username[0];
+    char path[32];
+
+    if(verifica_esistenza_file_username(primo_carattere, path, sizeof(path))){
+        FILE* file = fopen(path, "rb");
+        utente_t* utente = malloc(sizeof(utente_t));
+        while(fread(utente, sizeof(utente_t), 1, file) == 1){
+            if(strcmp(utente->username, username) == 0){
+                fclose(file);
+                free(utente);
+                esito = true;
+                break;
+            }
         }
+        free(utente);
+        fclose(file);
     }
 
     return esito;
     
+}
+
+static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
+    snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
+    return access(path, F_OK) == 0; // Verifica se il file esiste
+}
+
+static char* crea_path_file_username(char* path, int size){
+    FILE* file = fopen(path, "wb"); // Crea il file se non esiste
+    fclose(file);
+    return path;
 }
