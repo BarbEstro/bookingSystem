@@ -25,23 +25,31 @@ utente_t* crea_utente(const char *username, const char *password, bool isAdmin) 
 utente_t* verificaCredenziali(const char *username, const char *password) {
     char primo_carattere = username[0];
     char path[32];
+
     if (verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
         FILE* file = fopen(path, "rb");
-        while (file != NULL) {
+        if (file != NULL) {
             utente_t* utente = malloc(sizeof(utente_t));
-            if (fread(utente, sizeof(utente_t), 1, file) == 1) {
+            if (utente == NULL) {
+                fclose(file);
+                return NULL;
+            }
+
+            // Il ciclo legge un utente alla volta e si arresta da solo a fine file (EOF)
+            while (fread(utente, sizeof(utente_t), 1, file) == 1) {
                 if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
                     fclose(file);
-                    return utente; // Credenziali corrette
+                    return utente; // Credenziali corrette (memoria restituita al chiamante)
                 }
             }
+
+            // Se non trova corrispondenze, libera la memoria ed evita memory leak
             free(utente);
+            fclose(file);
         }
-        fclose(file);
     }
     
-    return NULL; // Credenziali non valide
-
+    return NULL; // Utente non trovato o password errata
 }
 
 bool registraUtente(utente_t* utente) {

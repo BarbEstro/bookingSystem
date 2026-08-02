@@ -9,7 +9,7 @@
 
 // Funzione helper per creare la cartella dati se non esiste
 void prepara_ambiente() {
-    mkdir("dati", 0777);
+    mkdir("dati", 777);
     remove("dati/utenti_m.bn");
 }
 
@@ -19,7 +19,7 @@ void test_crea_utente() {
     assert(strcmp(u->username, "mario") == 0);
     assert(strcmp(u->password, "pass123") == 0);
     assert(u->isAdmin == false);
-    free(u);
+    free(u); 
     printf("[OK] test_crea_utente passato.\n");
 }
 
@@ -53,6 +53,7 @@ int main() {
     prepara_ambiente();
     
     test_crea_utente();
+    printf("INIZIO test_registrazione_e_login...\n");
     test_registrazione_e_login();
 
     printf("=== TUTTI I TEST SONO SUPERATI! ===\n");
