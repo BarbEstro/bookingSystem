@@ -1,17 +1,19 @@
 CC = gcc
+CFLAGS = -Wall -Iinclude
 
-all: client server
 
-client: client.o comunicazioneSocket.o
-	$(CC) -o $@ $^
 
-server: server.o comunicazioneSocket.o gestione_login.o myfile.o
-	$(CC) -o $@ $^
+mio_programma: main.o funzioni.o
+	$(CC) $(CFLAGS) -o mio_programma main.o funzioni.o
 
-%.o: %.c
-	$(CC) -c -o $@ $<
+tests_login: test_gestione_login.o gestione_login.o
+	$(CC) $(CFLAGS) -o tests test_gestione_login.o gestione_login.o
+
+test_gestione_login.o: tests/test_gestione_login.c include/gestione_login.h include/booking_system_struct.h
+	$(CC) $(CFLAGS) -c tests/test_gestione_login.c -o test_gestione_login.o
+
+gestione_login.o: src/gestione_login.c include/gestione_login.h include/booking_system_struct.h
+	$(CC) $(CFLAGS) -c src/gestione_login.c -o gestione_login.o
 
 clean:
-	rm -f client server *.o
-
-.PHONY: all clean
+	rm -f *.o mio_programma

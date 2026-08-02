@@ -3,6 +3,7 @@
 #include <string.h>
 #include "booking_system_struct.h"
 #include <unistd.h>
+#include <stdlib.h>
 
 static bool controllo_username(const char* username);
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
@@ -45,18 +46,18 @@ utente_t* verificaCredenziali(const char *username, const char *password) {
 
 bool registraUtente(utente_t* utente) {
     bool esito = true;
-    char primo_carattere = utente->username[0];
     char path[32];
-    if(!verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
-        crea_path_file_username(path, sizeof(path));
+    if(!controllo_username(utente->username)) {
+        if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
+            crea_path_file_username(path, sizeof(path));
+        }
+        FILE* file = fopen(path, "ab");
+        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
+        if (written != 1) {
+            esito = false; // Errore durante la scrittura
+        }
+        fclose(file);
     }
-    FILE* file = aprireFile(path, "rb");
-    size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-    if (written != 1) {
-        esito = false; // Errore durante la scrittura
-    }
-
-    chiusuraFile(file);
 
     return esito;
 }
