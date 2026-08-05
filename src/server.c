@@ -2,10 +2,9 @@
 #include <stdlib.h>
 #include "comunicazioneSocket.h"
 #include <unistd.h>
-#include "protocollo_login.h"
+#include "booking_system_struct.h"
 #include "gestione_login.h"
-
-static int gestione_utenza(const char* username, const char* password, int scelta);
+#include "gestione_operazioni_server.h"
 
 int main(){
 
@@ -33,26 +32,26 @@ int main(){
             close(serverSock.socketfd); // Chiudiamo il socket del server nel processo figlio
             printf("Nuova connessione accettata, creando processo figlio...\n");
 
-            char buffer[PACKET_SIZE];
-            read(currentSocketfd, buffer, sizeof(buffer));
+            richiesta_login_registrazione_t richiesta;
+            read(currentSocketfd, &richiesta, sizeof(richiesta));
+            risposta_server_t risposta;
 
-            char username[MAX_USER_LEN + 1];
-            char password[MAX_PASS_LEN + 1];
-            int scelta;
-            sscanf(buffer, "%d-%[^-]-%[^-]", &scelta, username, password);
-
-            int risultato = gestione_utenza(username, password, scelta);
-            if (risultato == 1) {
-                // Login o registrazione riuscita
-                write(currentSocketfd, "SUCCESS", 7);
-            } else {
-                // Login o registrazione fallita
-                write(currentSocketfd, "FAILURE", 7);
+            switch(richiesta.operazione) {
+                case OP_CLI_LOGIN:
+                    printf("Gestione operazione di login...\n");
+                    risposta = operazione_login(richiesta);
+                    break;
+                case OP_CLI_REGISTRAZIONE:
+                    printf("Gestione operazione di registrazione...\n");
+                    risposta= operazione_registrazione(richiesta);
+                    break;
+                default:
+                    printf("Operazione non riconosciuta dal server.\n");
             }
 
-            //3) invia la risposta al client (successo o fallimento)
+            write(currentSocketfd, &risposta, sizeof(risposta));
 
-            //TODO gestione della comunicazione con il client (menù delle operazioni, ecc.)
+
 
 
             close(currentSocketfd); // Chiudiamo il socket del server nel processo figlio
@@ -65,8 +64,4 @@ int main(){
         }
 
     }
-}
-
-static int gestione_utenza(const char* username, const char* password, int scelta) {
-    //TODO fare l'implementazione
 }

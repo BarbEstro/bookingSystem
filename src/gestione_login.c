@@ -17,7 +17,6 @@ utente_t* crea_utente(const char *username, const char *password, bool isAdmin) 
     strncpy(nuovo_utente->username, username, MAX_USER_LEN);
     strncpy(nuovo_utente->password, password, MAX_PASS_LEN);
     nuovo_utente->isAdmin = isAdmin;
-    nuovo_utente->file_path_prenotazioni = NULL; // Inizializza a NULL o a un valore appropriato
 
     return nuovo_utente;
 }

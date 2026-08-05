@@ -13,21 +13,65 @@ enum stato_prenotazione {
     RIFIUTATA
 };
 
+typedef enum {
+    OP_CLI_LOGIN = 101,
+    OP_CLI_REGISTRAZIONE,
+    OP_CLI_LISTA_RISORSE,
+    OP_CLI_NUOVA_PRENOTAZ,
+    OP_CLI_MIE_PRENOTAZ,
+    OP_CLI_CANCELLA_PRENOTAZ,
+
+    OP_ADM_LISTA_TUTTE = 201,
+    OP_ADM_APPROVA_PRENOTAZ,
+    OP_ADM_RIFIUTA_PRENOTAZ
+} op_cliente_t;
+
+typedef enum {
+    OP_SRV_LOGIN_OK = 1001,
+    OP_SRV_LOGIN_KO,
+    OP_SRV_REGISTRAZIONE_OK,
+    OP_SRV_REGISTRAZIONE_KO
+} op_server_t;
+
+typedef struct {
+    int id_risorsa;             // Identificatore unico dell'aula (es. 101)
+    char nome[30];              // Es. "Aula Magna"
+    int capienza;               // Es. 50
+} risorsa_aula_t;
+
 typedef struct {
     char username[MAX_USER_LEN + 1];
     char password[MAX_PASS_LEN + 1];
-    bool isAdmin;
-    char *file_path_prenotazioni;
-    
+    bool isAdmin;   
 } utente_t;
 
 typedef struct {
     int id_prenotazione;
+    int id_risorsa;
     char data[11]; // Formato: YYYY-MM-DD
     char ora_inizio[6]; // Formato: HH:MM
     char ora_fine[6]; // Formato: HH:MM
     char richiedente[MAX_USER_LEN + 1];
     enum stato_prenotazione stato;
 } prenotazione_t;
+
+typedef struct {
+    op_cliente_t operazione;
+    utente_t utente;
+} richiesta_t;
+
+typedef struct {
+    op_server_t operazione;
+    utente_t utente;
+} risposta_server_t;
+
+
+typedef struct {
+    op_cliente_t operazione;
+    char username[MAX_USER_LEN + 1];
+    char password[MAX_PASS_LEN + 1];
+    bool isAdmin;
+} richiesta_login_registrazione_t;
+
 
 #endif // BOOKING_SYSTEM_STRUCT_H
