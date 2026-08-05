@@ -14,23 +14,26 @@ enum stato_prenotazione {
 };
 
 typedef enum {
-    OP_CLI_LOGIN = 101,
+    OP_CLI_LOGIN,
     OP_CLI_REGISTRAZIONE,
     OP_CLI_LISTA_RISORSE,
     OP_CLI_NUOVA_PRENOTAZ,
     OP_CLI_MIE_PRENOTAZ,
     OP_CLI_CANCELLA_PRENOTAZ,
 
-    OP_ADM_LISTA_TUTTE = 201,
+    OP_ADM_LISTA_TUTTE,
     OP_ADM_APPROVA_PRENOTAZ,
-    OP_ADM_RIFIUTA_PRENOTAZ
+    OP_ADM_RIFIUTA_PRENOTAZ,
+
+    OP_ESCI
 } op_cliente_t;
 
 typedef enum {
     OP_SRV_LOGIN_OK = 1001,
     OP_SRV_LOGIN_KO,
     OP_SRV_REGISTRAZIONE_OK,
-    OP_SRV_REGISTRAZIONE_KO
+    OP_SRV_REGISTRAZIONE_KO,
+    OP_SRV_USCITA_OK
 } op_server_t;
 
 typedef struct {

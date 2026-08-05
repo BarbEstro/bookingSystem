@@ -45,10 +45,12 @@ int main(){
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta){
     richiesta_login_registrazione_t richiesta;
     richiesta.operazione = scelta;
-    printf("Inserisci il tuo username [Max 10 caratteri]: ");
-    scanf("%s", richiesta.username);
-    printf("Inserisci la tua password [Max 20 caratteri]: ");
-    scanf("%s", richiesta.password);
+    if(scelta != OP_ESCI){
+        printf("Inserisci il tuo username [Max 10 caratteri]: ");
+        scanf("%s", richiesta.username);
+        printf("Inserisci la tua password [Max 20 caratteri]: ");
+        scanf("%s", richiesta.password);
+    }
 
     // Invia i dati al server
     write(clientSock.socketfd, &richiesta, sizeof(richiesta));

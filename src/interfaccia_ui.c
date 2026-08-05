@@ -41,8 +41,9 @@ op_cliente_t operazioni_login() {
             operazione = OP_CLI_REGISTRAZIONE;
             break;
         case 0:
+            operazione = OP_ESCI;
             printf("Arrivederci.\n");
-            exit(EXIT_SUCCESS);
+            break;
     }
     return operazione;
 }

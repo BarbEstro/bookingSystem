@@ -45,6 +45,10 @@ int main(){
                     printf("Gestione operazione di registrazione...\n");
                     risposta= operazione_registrazione(richiesta);
                     break;
+                case OP_ESCI:
+                    printf("Operazione di uscita richiesta dal client.\n");
+                    risposta.operazione = OP_SRV_USCITA_OK;
+                    break;
                 default:
                     printf("Operazione non riconosciuta dal server.\n");
             }
@@ -52,11 +56,11 @@ int main(){
             write(currentSocketfd, &risposta, sizeof(risposta));
 
 
-
-
-            close(currentSocketfd); // Chiudiamo il socket del server nel processo figlio
-            printf("Chiusura del processo figlio...\n");
-            exit(EXIT_SUCCESS); // Terminiamo il processo figlio dopo aver gestito la comunicazione
+            if(richiesta.operazione == OP_ESCI && risposta.operazione == OP_SRV_USCITA_OK) {
+                printf("Chiusura della connessione con il client...\n");
+                close(currentSocketfd);
+                exit(EXIT_SUCCESS);
+            }
         } else {
             // Processo padre
             printf("Connessione accettata, processo padre continua ad ascoltare...\n");
