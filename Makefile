@@ -6,13 +6,14 @@ SRC_DIR = src
 TEST_DIR = tests
 
 CLIENT_SRCS = $(SRC_DIR)/client.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/interfaccia_ui.c
-SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c
+SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_operazioni_server.c
 TEST_SRCS = $(TEST_DIR)/test_gestione_login.c $(SRC_DIR)/gestione_login.c
 TEST_UI_SRCS = $(TEST_DIR)/test_interfaccia_ui.c $(SRC_DIR)/interfaccia_ui.c
 
 CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
 SERVER_OBJS = $(SERVER_SRCS:.c=.o)
 TEST_OBJS = $(TEST_SRCS:.c=.o)
+TEST_UI_OBJS = $(TEST_UI_SRCS:.c=.o)
 
 all: client server test_login test_interfaccia_ui
 
@@ -25,15 +26,15 @@ server: $(SERVER_OBJS)
 test_login: $(TEST_OBJS)
 	$(CC) $(CFLAGS) -o test_login $(TEST_OBJS)
 
-test_interfaccia_ui: $(TEST_UI_SRCS:.c=.o)
-	$(CC) $(CFLAGS) -o test_interfaccia_ui $(TEST_UI_SRCS:.c=.o)
+test_interfaccia_ui: $(TEST_UI_OBJS)
+	$(CC) $(CFLAGS) -o test_interfaccia_ui $(TEST_UI_OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Default clean: remove object files and main binaries but keep test executable
 clean:
-	rm -f $(CLIENT_OBJS) $(SERVER_OBJS) *.o client server mio_programma
+	rm -f $(CLIENT_OBJS) $(SERVER_OBJS) $(TEST_OBJS) $(TEST_UI_OBJS) *.o client server test_login test_interfaccia_ui
 
 # Separate rule to clean test artifacts when desired
 clean-tests:

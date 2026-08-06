@@ -1,4 +1,7 @@
 #include "gestione_operazioni_server.h"
+#include "gestione_login.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 risposta_server_t operazione_login(richiesta_login_registrazione_t richiesta) {
     risposta_server_t risposta;
