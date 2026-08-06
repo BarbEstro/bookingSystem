@@ -2,6 +2,7 @@
 #include "gestione_login.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "debug.h"
 
 risposta_server_t operazione_login(richiesta_login_registrazione_t richiesta) {
     risposta_server_t risposta;
@@ -22,10 +23,13 @@ risposta_server_t operazione_registrazione(richiesta_login_registrazione_t richi
     risposta_server_t risposta;
     printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.username, richiesta.password, richiesta.isAdmin);
     utente_t* nuovo_utente = crea_utente(richiesta.username, richiesta.password, richiesta.isAdmin);
+    LOG("Fase di controllo utente");
     if (nuovo_utente != NULL){
         if (registraUtente(nuovo_utente)) {
+            LOG("Non esiste");
             risposta.operazione = OP_SRV_REGISTRAZIONE_OK;
         } else {
+            LOG("esiste username");
             risposta.operazione = OP_SRV_REGISTRAZIONE_KO;
         }
         free(nuovo_utente); // Libera la memoria allocata per il nuovo utente
@@ -33,5 +37,6 @@ risposta_server_t operazione_registrazione(richiesta_login_registrazione_t richi
         risposta.operazione = OP_SRV_REGISTRAZIONE_KO; // TODO QUESTA LA VEDO COME ANOMALIA
         printf("Errore nella creazione dell'utente.\n");
     }
+    LOG("RISPOSTA SERVER: ", risposta);
     return risposta;
 }

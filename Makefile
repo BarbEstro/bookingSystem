@@ -1,6 +1,10 @@
 
 CC = gcc
-CFLAGS = -Wall -Iinclude -g
+CFLAGS = -Wall -Iinclude
+RELEASE_FLAGS = -O2
+DEBUG_FLAGS = -g -O0 -DDEBUG
+
+CFLAGS += $(RELEASE_FLAGS)
 
 SRC_DIR = src
 TEST_DIR = tests
@@ -16,6 +20,9 @@ TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_UI_OBJS = $(TEST_UI_SRCS:.c=.o)
 
 all: client server test_login test_interfaccia_ui
+
+debug: CFLAGS = -Wall -Iinclude $(DEBUG_FLAGS)
+debug: client server test_login test_interfaccia_ui
 
 client: $(CLIENT_OBJS)
 	$(CC) $(CFLAGS) -o client $(CLIENT_OBJS)

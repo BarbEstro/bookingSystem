@@ -4,6 +4,7 @@
 #include "booking_system_struct.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include "debug.h"
 
 static bool controllo_username(const char* username);
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
@@ -52,17 +53,16 @@ utente_t* verificaCredenziali(const char *username, const char *password) {
 }
 
 bool registraUtente(utente_t* utente) {
-    bool esito = true;
+    bool esito = false;
     char path[32];
+    LOG("Controllo se esiste un username simile");
     if(!controllo_username(utente->username)) {
         if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
             crea_path_file_username(path, sizeof(path));
         }
         FILE* file = fopen(path, "ab");
         size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-        if (written != 1) {
-            esito = false; // Errore durante la scrittura
-        }
+        esito = true;
         fclose(file);
     }
 
@@ -79,9 +79,8 @@ static bool controllo_username(const char* username){
         utente_t* utente = malloc(sizeof(utente_t));
         while(fread(utente, sizeof(utente_t), 1, file) == 1){
             if(strcmp(utente->username, username) == 0){
-                fclose(file);
-                free(utente);
                 esito = true;
+                LOG("USERNAME TROVATO");
                 break;
             }
         }
@@ -94,7 +93,9 @@ static bool controllo_username(const char* username){
 }
 
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
+    LOG("verifica esistenza file");
     snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
+    LOG("File da controllare : %s", path);
     return access(path, F_OK) == 0; // Verifica se il file esiste
 }
 

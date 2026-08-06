@@ -10,6 +10,7 @@ void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
 
 int main(){
     SocketInfo clientSock = inizializzaSocketClient();
+    utente_t utente_esecuzione;
     // Mostra l'interfaccia di login e registrazione
     risposta_server_t risposta;
     bool isAdmin = false;
@@ -21,7 +22,8 @@ int main(){
         switch(risposta.operazione) {
             case OP_SRV_LOGIN_OK:
                 printf("Login effettuato con successo! Benvenuto, %s.\n", risposta.utente.username);
-                isAdmin = risposta.utente.isAdmin;
+                utente_esecuzione = risposta.utente;
+                isAdmin = utente_esecuzione.isAdmin;
                 break;
             case OP_SRV_LOGIN_KO:
                 printf("Login fallito! Username o password errati.\n");
@@ -35,10 +37,18 @@ int main(){
             default:
                 printf("Operazione non riconosciuta dal server.\n");
         }
-    } while(risposta.operazione == OP_SRV_LOGIN_KO || risposta.operazione == OP_SRV_REGISTRAZIONE_OK || risposta.operazione == OP_SRV_REGISTRAZIONE_KO);
+    } while(risposta.operazione == OP_SRV_LOGIN_KO || risposta.operazione == OP_SRV_REGISTRAZIONE_KO);
     
+    if(isAdmin) {
+        printf("Accesso come amministratore.\n");
+        interfaccia_utente_admin();
+    } else {
+        printf("Accesso come cliente.\n");
+        interfaccia_utente_cliente();
+
+    }
+
     
-    return 0;
 }
 
 

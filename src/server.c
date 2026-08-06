@@ -5,6 +5,7 @@
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
+#include "debug.h"
 
 int main() {
   printf("Inizio server...\n");
@@ -30,9 +31,7 @@ int main() {
     }
     if (pid == 0) {
       // Processo figlio
-      close(
-          serverSock
-              .socketfd);  // Chiudiamo il socket del server nel processo figlio
+      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio
       printf("Nuova connessione accettata, creando processo figlio...\n");
 
       while (1) {
@@ -57,13 +56,15 @@ int main() {
             printf("Operazione non riconosciuta dal server.\n");
         }
 
+        LOG("RISPOSTA DEL SERVER ", risposta.operazione);
+
         write(currentSocketfd, &risposta, sizeof(risposta));
 
         if (richiesta.operazione == OP_ESCI &&
             risposta.operazione == OP_SRV_USCITA_OK) {
-          printf("Chiusura della connessione con il client...\n");
-          close(currentSocketfd);
-          exit(EXIT_SUCCESS);
+            printf("Chiusura della connessione con il client...\n");
+            close(currentSocketfd);
+            exit(EXIT_SUCCESS);
         }
       }
     } else {
