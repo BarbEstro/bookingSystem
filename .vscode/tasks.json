@@ -22,6 +22,24 @@
                 "isDefault": true
             },
             "detail": "Attività generata dal debugger."
+        },
+        {
+            "label": "Genera lista TODO",
+            "type": "shell",
+            "command": "grep -rnIi --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=.vscode 'TODO' .",
+            "problemMatcher": {
+                "owner": "custom-todo",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "pattern": {
+                    "regexp": "^([^:]+):(\\d+):(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "message": 3
+                }
+            }
         }
     ],
     "version": "2.0.0"

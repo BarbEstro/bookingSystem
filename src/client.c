@@ -45,13 +45,13 @@ int main(){
     } else {
         printf("Accesso come cliente.\n");
         interfaccia_utente_cliente();
-
+        op_cliente_t operazioni_cliente();
     }
 
     
 }
 
-
+//TODO: il nome dev'essere tutto minuscolo
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta){
     richiesta_login_registrazione_t richiesta;
     richiesta.operazione = scelta;
