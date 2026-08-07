@@ -45,7 +45,8 @@ int main(){
     } else {
         printf("Accesso come cliente.\n");
         interfaccia_utente_cliente();
-        op_cliente_t operazioni_cliente();
+        op_cliente_t scelta = operazioni_cliente();
+        manda_richiesta_operazione(clientSock,scelta,utente_esecuzione);
     }
 
     
@@ -65,4 +66,12 @@ void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta){
     // Invia i dati al server
     write(clientSock.socketfd, &richiesta, sizeof(richiesta));
 
+}
+
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente){
+    richiesta_t richiesta;
+    richiesta.operazione = scelta;
+    richiesta.utente = utente;
+
+    write(clientSock.socketfd, &richiesta, sizeof(richiesta));
 }
