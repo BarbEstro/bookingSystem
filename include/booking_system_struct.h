@@ -29,12 +29,12 @@ typedef enum {
 } op_cliente_t;
 
 typedef enum {
-    OP_SRV_LOGIN_OK = 1001,
-    OP_SRV_LOGIN_KO,
-    OP_SRV_REGISTRAZIONE_OK,
-    OP_SRV_REGISTRAZIONE_KO,
-    OP_SRV_USCITA_OK
-} op_server_t;
+    ESITO_LOGIN_OK = 1001,
+    ESITO_LOGIN_KO,
+    ESITO_REGISTRAZIONE_OK,
+    ESITO_REGISTRAZIONE_KO,
+    ESITO_USCITA_OK
+} esito_server_t;
 
 typedef struct {
     int id_risorsa;             // Identificatore unico dell'aula (es. 101)
@@ -54,7 +54,7 @@ typedef struct {
     char data[11]; // Formato: YYYY-MM-DD
     char ora_inizio[6]; // Formato: HH:MM
     char ora_fine[6]; // Formato: HH:MM
-    char richiedente[MAX_USER_LEN + 1];
+    utente_t utente;
     enum stato_prenotazione stato;
 } prenotazione_t;
 
@@ -64,17 +64,9 @@ typedef struct {
 } richiesta_t;
 
 typedef struct {
-    op_server_t operazione;
+    esito_server_t esito;
     utente_t utente;
 } risposta_server_t;
-
-
-typedef struct {
-    op_cliente_t operazione;
-    char username[MAX_USER_LEN + 1];
-    char password[MAX_PASS_LEN + 1];
-    bool isAdmin;
-} richiesta_login_registrazione_t;
 
 
 #endif // BOOKING_SYSTEM_STRUCT_H

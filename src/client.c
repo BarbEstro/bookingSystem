@@ -7,6 +7,7 @@
 #include "interfaccia_ui.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente);
 
 int main(){
     SocketInfo clientSock = inizializzaSocketClient();
@@ -19,25 +20,29 @@ int main(){
         op_cliente_t scelta = operazioni_login();
         loginOrRegistrazione(clientSock, scelta);
         read(clientSock.socketfd, &risposta, sizeof(risposta));
-        switch(risposta.operazione) {
-            case OP_SRV_LOGIN_OK:
+        switch(risposta.esito) {
+            case ESITO_LOGIN_OK:
                 printf("Login effettuato con successo! Benvenuto, %s.\n", risposta.utente.username);
                 utente_esecuzione = risposta.utente;
                 isAdmin = utente_esecuzione.isAdmin;
                 break;
-            case OP_SRV_LOGIN_KO:
+            case ESITO_LOGIN_KO:
                 printf("Login fallito! Username o password errati.\n");
                 break;
-            case OP_SRV_REGISTRAZIONE_OK:
+            case ESITO_REGISTRAZIONE_OK:
                 printf("Registrazione effettuata con successo! Puoi ora effettuare il login.\n");
                 break;
-            case OP_SRV_REGISTRAZIONE_KO:
+            case ESITO_REGISTRAZIONE_KO:
                 printf("Registrazione fallita! L'username potrebbe essere già in uso.\n");
+                break;
+            case ESITO_USCITA_OK:
+                printf("uscita consentita");
+                exit(0);
                 break;
             default:
                 printf("Operazione non riconosciuta dal server.\n");
         }
-    } while(risposta.operazione == OP_SRV_LOGIN_KO || risposta.operazione == OP_SRV_REGISTRAZIONE_KO);
+    } while(risposta.esito == ESITO_LOGIN_KO || risposta.esito == ESITO_REGISTRAZIONE_KO);
     
     if(isAdmin) {
         printf("Accesso come amministratore.\n");
@@ -52,19 +57,20 @@ int main(){
     
 }
 
-//TODO: il nome dev'essere tutto minuscolo
+//TODO il nome dev'essere tutto minuscolo
+//TODO aggiustare gli scanf con %valore
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta){
-    richiesta_login_registrazione_t richiesta;
-    richiesta.operazione = scelta;
+    richiesta_t richiesta_login;
+    richiesta_login.operazione = scelta;
     if(scelta != OP_ESCI){
         printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
-        scanf("%s", richiesta.username);
+        scanf("%s", richiesta_login.utente.username);
         printf("Inserisci la tua password [Max 20 caratteri]: ");
-        scanf("%s", richiesta.password);
+        scanf("%s", richiesta_login.utente.username);
     }
 
     // Invia i dati al server
-    write(clientSock.socketfd, &richiesta, sizeof(richiesta));
+    write(clientSock.socketfd, &richiesta_login, sizeof(richiesta_login));
 
 }
 

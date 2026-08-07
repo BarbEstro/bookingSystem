@@ -35,9 +35,10 @@ int main() {
       printf("Nuova connessione accettata, creando processo figlio...\n");
 
       while (1) {
-        richiesta_login_registrazione_t richiesta;
+        richiesta_t richiesta;
         read(currentSocketfd, &richiesta, sizeof(richiesta));
         risposta_server_t risposta;
+        utente_t utente = richiesta.utente;
 
         switch (richiesta.operazione) {
           case OP_CLI_LOGIN:
@@ -50,18 +51,29 @@ int main() {
             break;
           case OP_ESCI:
             printf("Operazione di uscita richiesta dal client.\n");
-            risposta.operazione = OP_SRV_USCITA_OK;
+            risposta.esito = ESITO_USCITA_OK;
             break;
+          case OP_CLI_MIE_PRENOTAZ:
+            printf("Richiesta di visualizzazione prenotazione da: %s", utente.username);
+            //TODO GESTIONE PRENOTAZIONE
+            break;
+          case OP_CLI_NUOVA_PRENOTAZ:
+            printf("Nuova prenotazione: ");
+            //TODO NUOVA P
+            break;
+          case OP_CLI_CANCELLA_PRENOTAZ:
+          //TODO CANCELLAZIONE
+            printf("cancellazione..");
           default:
             printf("Operazione non riconosciuta dal server.\n");
         }
 
-        LOG("RISPOSTA DEL SERVER ", risposta.operazione);
+        LOG("RISPOSTA DEL SERVER ", risposta.esito);
 
         write(currentSocketfd, &risposta, sizeof(risposta));
 
         if (richiesta.operazione == OP_ESCI &&
-            risposta.operazione == OP_SRV_USCITA_OK) {
+            risposta.esito == ESITO_USCITA_OK) {
             printf("Chiusura della connessione con il client...\n");
             close(currentSocketfd);
             exit(EXIT_SUCCESS);
