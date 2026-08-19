@@ -63,9 +63,24 @@ typedef struct {
     utente_t utente;
 } richiesta_t;
 
+// Definisci le tue struct specifiche per le varie operazioni (la tua Opzione 2!)
 typedef struct {
-    esito_server_t esito;
     utente_t utente;
+} payload_login_t;
+
+typedef struct {
+    int numero_prenotazioni;
+} payload_prenotazioni_t;
+
+
+typedef struct {
+    esito_server_t esito; // ESITO_LOGIN_OK, ESITO_PRENOTAZIONI_OK, ecc.
+    
+    union {
+        payload_login_t dati_login;
+        payload_prenotazioni_t dati_prenotazioni;
+    } payload;
+
 } risposta_server_t;
 
 

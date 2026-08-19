@@ -22,8 +22,8 @@ int main(){
         read(clientSock.socketfd, &risposta, sizeof(risposta));
         switch(risposta.esito) {
             case ESITO_LOGIN_OK:
-                printf("Login effettuato con successo! Benvenuto, %s.\n", risposta.utente.username);
-                utente_esecuzione = risposta.utente;
+                utente_esecuzione = risposta.payload.dati_login.utente;
+                printf("Login effettuato con successo! Benvenuto, %s.\n", utente_esecuzione.username);
                 isAdmin = utente_esecuzione.isAdmin;
                 break;
             case ESITO_LOGIN_KO:
@@ -66,7 +66,7 @@ void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta){
         printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
         scanf("%s", richiesta_login.utente.username);
         printf("Inserisci la tua password [Max 20 caratteri]: ");
-        scanf("%s", richiesta_login.utente.username);
+        scanf("%s", richiesta_login.utente.password);
     }
 
     // Invia i dati al server

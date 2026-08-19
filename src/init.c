@@ -13,6 +13,7 @@ void creazione_file_utenza() {
   utente_t utenti[] = {{"pippo", "pappo", false},
                        {"pluto", "plato", false},
                        {"admin", "admin123", true}};
+                       //aggiungi utente
 
   int n_utenti = sizeof(utenti) / sizeof(utente_t);
 
@@ -29,6 +30,7 @@ void inizializza_risorse() {
                               {202, "Aula Studio 2", 20},
                               {301, "Sala Conferenze", 80},
                               {302, "Aula Seminari", 15}};
+                              //Aggiungi aula
 
   size_t n_risorse = sizeof(risorse) / sizeof(risorse[0]);
 

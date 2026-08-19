@@ -11,7 +11,7 @@ risposta_server_t operazione_login(richiesta_t richiesta) {
     utente_t* utente = verificaCredenziali(utente_temp.username, utente_temp.password);
     if(utente != NULL) {
         risposta.esito = ESITO_LOGIN_OK;
-        risposta.utente = *utente;
+        risposta.payload.dati_login.utente = *utente;
         free(utente); // Libera la memoria allocata per l'utente
     } else {
         risposta.esito = ESITO_LOGIN_KO;
@@ -42,3 +42,8 @@ risposta_server_t operazione_registrazione(richiesta_t richiesta) {
     LOG("RISPOSTA SERVER: ", risposta);
     return risposta;
 }
+
+risposta_server_t operazione_nuova_prenotazione(richiesta_t richiesta){
+
+}
+

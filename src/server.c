@@ -55,11 +55,11 @@ int main() {
             break;
           case OP_CLI_MIE_PRENOTAZ:
             printf("Richiesta di visualizzazione prenotazione da: %s", utente.username);
-            //TODO GESTIONE PRENOTAZIONE
+            
             break;
           case OP_CLI_NUOVA_PRENOTAZ:
             printf("Nuova prenotazione: ");
-            //TODO NUOVA P
+            //TODO Nuova prenotazione
             break;
           case OP_CLI_CANCELLA_PRENOTAZ:
           //TODO CANCELLAZIONE
