@@ -58,7 +58,8 @@ int main() {
             
             break;
           case OP_CLI_NUOVA_PRENOTAZ:
-            printf("Nuova prenotazione: ");
+            printf("Nuova prenotazione richiesta da %s", utente.username);
+            //SERVER CHIEDE LA DISPONIBILITÀ AL CALENDARIO CHE DOPO MANDERÀ UNA STRINGA ALL'UTENTE
             //TODO Nuova prenotazione
             break;
           case OP_CLI_CANCELLA_PRENOTAZ:

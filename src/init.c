@@ -22,8 +22,8 @@ void creazione_file_utenza() {
   }
 }
 
-void inizializza_risorse() {
-  risorsa_aula_t risorse[] = {{101, "Aula Magna", 150},
+void inizializza_risorse_disponibilita() {
+  risorsa_aula_t aule[] = {{101, "Aula Magna", 150},
                               {102, "Laboratorio Informatica A", 30},
                               {103, "Laboratorio Informatica B", 25},
                               {201, "Aula Studio 1", 40},
@@ -32,18 +32,32 @@ void inizializza_risorse() {
                               {302, "Aula Seminari", 15}};
                               //Aggiungi aula
 
-  size_t n_risorse = sizeof(risorse) / sizeof(risorse[0]);
+  size_t n_risorse = sizeof(aule) / sizeof(aule[0]);
 
   // Esempio di salvataggio su binario "dati/risorse.bn"
-  FILE* file = fopen("dati/risorse.bn", "wb");
-  if (file != NULL) {
-    fwrite(risorse, sizeof(risorsa_aula_t), n_risorse, file);
-    fclose(file);
+  FILE* file_risorse = fopen("dati/risorse.bn", "wb");
+  if (file_risorse != NULL) {
+    fwrite(aule, sizeof(risorsa_aula_t), n_risorse, file_risorse);
+    fclose(file_risorse);
     printf("[OK] Salvate %zu risorse in dati/risorse.bn\n", n_risorse);
   }
+
+  FILE* file_disponibilita = fopen("dati/calendario.bn", "wb");
+  if(file_disponibilita != NULL){
+    disponibilita_aula_t calendario[n_risorse];
+    for(int i = 0; i < n_risorse; i++){
+      calendario[i].aula = aule[i];
+      for(int j = 0; j < ORE; j++){
+        calendario->ore_stato[j] = 0;
+      }
+    }
+    fwrite(calendario,sizeof(disponibilita_aula_t),n_risorse,file_disponibilita);
+    fclose(file_disponibilita);
+  }
 }
+
 int main() {
     inizializzazione_cartella();
     creazione_file_utenza();
-    inizializza_risorse();
+    inizializza_risorse_disponibilita();
 }
