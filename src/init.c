@@ -48,7 +48,7 @@ void inizializza_risorse_disponibilita() {
     for(int i = 0; i < n_risorse; i++){
       calendario[i].aula = aule[i];
       for(int j = 0; j < ORE; j++){
-        calendario->ore_stato[j] = 0;
+        calendario[i].ore_stato[j] = 0;
       }
     }
     fwrite(calendario,sizeof(disponibilita_aula_t),n_risorse,file_disponibilita);

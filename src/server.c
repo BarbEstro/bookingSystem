@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "calendario.h"
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
@@ -12,6 +13,7 @@ int main() {
   SocketInfo serverSock = inizializzaSocketServer();
   struct sockaddr_in clientAddress;
   int currentSocketfd;
+  carica_calendario_all_avvio();
 
   while (1) {
     printf("In attesa di connessioni...\n");
@@ -51,7 +53,7 @@ int main() {
             break;
           case OP_ESCI:
             printf("Operazione di uscita richiesta dal client.\n");
-            risposta.esito = ESITO_USCITA_OK;
+            risposta.esito = ESITO_OK;
             break;
           case OP_CLI_MIE_PRENOTAZ:
             printf("Richiesta di visualizzazione prenotazione da: %s", utente.username);
@@ -73,8 +75,7 @@ int main() {
 
         write(currentSocketfd, &risposta, sizeof(risposta));
 
-        if (richiesta.operazione == OP_ESCI &&
-            risposta.esito == ESITO_USCITA_OK) {
+        if (richiesta.operazione == OP_ESCI && risposta.esito == ESITO_OK) {
             printf("Chiusura della connessione con il client...\n");
             close(currentSocketfd);
             exit(EXIT_SUCCESS);
@@ -82,10 +83,8 @@ int main() {
       }
     } else {
       // Processo padre
-      printf(
-          "Connessione accettata, processo padre continua ad ascoltare...\n");
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo
-                               // padre
+      printf("Connessione accettata, processo padre continua ad ascoltare...\n");
+      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
     }
   }
 }
