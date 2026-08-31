@@ -3,9 +3,14 @@
 
 #define MAX_USER_LEN  10
 #define MAX_PASS_LEN  20
+#define ORE 12
 
 #include <stdbool.h>
 #include <stdio.h>
+
+//=================================
+// 1. ENUMERATORI
+//=================================
 
 enum stato_prenotazione {
     ATTESA,
@@ -29,12 +34,19 @@ typedef enum {
 } op_cliente_t;
 
 typedef enum {
-    ESITO_LOGIN_OK = 1001,
-    ESITO_LOGIN_KO,
-    ESITO_REGISTRAZIONE_OK,
-    ESITO_REGISTRAZIONE_KO,
-    ESITO_USCITA_OK
-} esito_server_t;
+    ESITO_KO = 0,
+    ESITO_OK = 1
+} esito_t;
+
+//==================================
+// 2. STRUTTURE DATI (INVARIATE)
+//==================================
+
+typedef struct {
+    char username[MAX_USER_LEN + 1];
+    char password[MAX_PASS_LEN + 1];
+    bool isAdmin;   
+} utente_t;
 
 typedef struct {
     int id_risorsa;             // Identificatore unico dell'aula (es. 101)
@@ -43,11 +55,11 @@ typedef struct {
 } risorsa_aula_t;
 
 typedef struct {
-    char username[MAX_USER_LEN + 1];
-    char password[MAX_PASS_LEN + 1];
-    bool isAdmin;   
-} utente_t;
+    risorsa_aula_t aula;       // ID, nome, capienza
+    int ore_stato[ORE];        // Array di 12 ore (0 = libera, 1 = occupata)
+} disponibilita_aula_t;
 
+//TODO cambiare le impostazioni delle ore
 typedef struct {
     int id_prenotazione;
     int id_risorsa;
@@ -58,30 +70,26 @@ typedef struct {
     enum stato_prenotazione stato;
 } prenotazione_t;
 
+//==========================================
+// 3. MESSAGGIO DI RICHIESTA Client-> Server
+//==========================================
+
 typedef struct {
     op_cliente_t operazione;
     utente_t utente;
 } richiesta_t;
 
-// Definisci le tue struct specifiche per le varie operazioni (la tua Opzione 2!)
-typedef struct {
-    utente_t utente;
-} payload_login_t;
+//==========================================
+// 4. MESSAGGIO DI RISPOSTA Server -> Client
+//==========================================
 
 typedef struct {
-    int numero_prenotazioni;
-} payload_prenotazioni_t;
-
-
-typedef struct {
-    esito_server_t esito; // ESITO_LOGIN_OK, ESITO_PRENOTAZIONI_OK, ecc.
-    
-    union {
-        payload_login_t dati_login;
-        payload_prenotazioni_t dati_prenotazioni;
-    } payload;
-
-} risposta_server_t;
+    esito_t esito;              // ESITO_OK o ESITO_KO
+    op_cliente_t operazione;    // Riferimento all'operazione
+    char messaggio[64];         // Es. "Login effettuato" o "Password errata"
+    int num_elementi;           // Quanti elementi ci sono dopo (es. 7 aule, 1 utente, 0 se errore)
+    size_t payload_size;        // Dimensione esatta in BYTE del payload che segue
+} risposta_header_t;
 
 
 #endif // BOOKING_SYSTEM_STRUCT_H

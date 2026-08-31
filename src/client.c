@@ -13,14 +13,20 @@ void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, uten
 int main() {
   SocketInfo clientSock = inizializzaSocketClient();
   utente_t utente_esecuzione;
-  // Mostra l'interfaccia di login e registrazione
-  risposta_server_t risposta;
+  risposta_header_t risposta; 
   bool isAdmin = false;
+
   do {
     interfaccia_login();
     op_cliente_t scelta = operazioni_login();
     loginOrRegistrazione(clientSock, scelta);
-    read(clientSock.socketfd, &risposta, sizeof(risposta));
+
+    // 1. PRIMA READ: Leggiamo solo l'Header (le "istruzioni")
+    if (read(clientSock.socketfd, &risposta, sizeof(risposta)) <= 0) {
+        printf("Errore di comunicazione con il server.\n");
+        exit(1);
+    }
+
     switch (risposta.esito) {
       case ESITO_OK:
         if (scelta == OP_ESCI) {
@@ -29,16 +35,23 @@ int main() {
         }
 
         if (scelta == OP_CLI_LOGIN) {
-          utente_esecuzione = risposta.payload.dati_login.utente;
-          printf("%s - Benvenuto %s!\n", risposta.messaggio,
-                 utente_esecuzione.username);
+          // 2. SECONDA READ: Il server ha detto OK e ci sta mandando l'utente
+          if (risposta.payload_size > 0) {
+              read(clientSock.socketfd, &utente_esecuzione, risposta.payload_size);
+          }
+          
+          printf("%s - Benvenuto %s!\n", risposta.messaggio, utente_esecuzione.username);
           isAdmin = utente_esecuzione.isAdmin;
+          
         } else if (scelta == OP_CLI_REGISTRAZIONE) {
+          // Nessuna seconda read: la registrazione non invia payload (payload_size = 0)
           printf("%s\n", risposta.messaggio);
         }
         break;
 
       case ESITO_KO:
+        // In caso di errore (es. password errata), il server non invia payload.
+        // Leggiamo e stampiamo solo il messaggio dell'header.
         printf("[ERRORE] %s\n", risposta.messaggio);
         break;
 
@@ -48,34 +61,43 @@ int main() {
     }
   } while (risposta.esito == ESITO_KO);
 
+  // Da qui in poi il codice è invariato!
   if (isAdmin) {
     printf("Accesso come amministratore.\n");
     interfaccia_utente_admin();
+    // TODO: Aggiungere logica operazioni admin
   } else {
     printf("Accesso come cliente.\n");
     interfaccia_utente_cliente();
     op_cliente_t scelta = operazioni_cliente();
     manda_richiesta_operazione(clientSock, scelta, utente_esecuzione);
+    
+    // NOTA: Anche qui, quando gestirai la risposta di manda_richiesta_operazione, 
+    // farai la stessa cosa: una prima read per l'Header, e una seconda per le Aule/Prenotazioni!
   }
 }
+
+// =======================================================
+// Le due funzioni sottostanti rimangono invariate
+// =======================================================
 
 // TODO il nome dev'essere tutto minuscolo
 // TODO aggiustare gli scanf con %valore
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
-  richiesta_t richiesta_login;
-  richiesta_login.operazione = scelta;
+  richiesta_t richiesta;
+  richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
-    scanf("%s", richiesta_login.utente.username);
+    scanf("%10s", richiesta.utente.username); // Aggiunto limite per sicurezza
     printf("Inserisci la tua password [Max 20 caratteri]: ");
-    scanf("%s", richiesta_login.utente.password);
+    scanf("%20s", richiesta.utente.password); // Aggiunto limite per sicurezza
   }
 
   // Invia i dati al server
-  write(clientSock.socketfd, &richiesta_login, sizeof(richiesta_login));
+  write(clientSock.socketfd, &richiesta, sizeof(richiesta));
 }
 
-void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,utente_t utente) {
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente) {
   richiesta_t richiesta;
   richiesta.operazione = scelta;
   richiesta.utente = utente;

@@ -3,7 +3,7 @@
 
 #include "booking_system_struct.h"
 
-risposta_server_t operazione_login(richiesta_t richiesta);
-risposta_server_t operazione_registrazione(richiesta_t richiesta);
+void operazione_login(int client_sock, richiesta_t richiesta);
+void operazione_registrazione(int client_sock, richiesta_t richiesta);
 
 #endif // GESTIONE_OPERAZIONI_SERVER_H

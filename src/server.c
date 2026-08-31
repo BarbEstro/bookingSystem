@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "calendario.h"
 #include "booking_system_struct.h"
@@ -9,82 +10,87 @@
 #include "debug.h"
 
 int main() {
-  printf("Inizio server...\n");
-  SocketInfo serverSock = inizializzaSocketServer();
-  struct sockaddr_in clientAddress;
-  int currentSocketfd;
-  carica_calendario_all_avvio();
+  printf("Inizio server...\n"); //[cite: 9]
+  SocketInfo serverSock = inizializzaSocketServer(); //[cite: 9]
+  struct sockaddr_in clientAddress; //[cite: 9]
+  int currentSocketfd; //[cite: 9]
+  carica_calendario_all_avvio(); //[cite: 9]
 
-  while (1) {
-    printf("In attesa di connessioni...\n");
-    socklen_t clientAddressLength = sizeof(clientAddress);
-    currentSocketfd =
-        accept(serverSock.socketfd, (struct sockaddr*)&clientAddress,
-               &clientAddressLength);
-    if (currentSocketfd < 0) {
-      perror("Errore nell'accept del socket");
-      exit(EXIT_FAILURE);
+  while (1) { //[cite: 9]
+    printf("In attesa di connessioni...\n"); //[cite: 9]
+    socklen_t clientAddressLength = sizeof(clientAddress); //[cite: 9]
+    currentSocketfd = accept(serverSock.socketfd, (struct sockaddr*)&clientAddress, &clientAddressLength); //[cite: 9]
+    if (currentSocketfd < 0) { //[cite: 9]
+      perror("Errore nell'accept del socket"); //[cite: 9]
+      exit(EXIT_FAILURE); //[cite: 9]
     }
 
-    pid_t pid = fork();
-    if (pid < 0) {
-      perror("Errore nella creazione del processo figlio");
-      exit(EXIT_FAILURE);
+    pid_t pid = fork(); //[cite: 9]
+    if (pid < 0) { //[cite: 9]
+      perror("Errore nella creazione del processo figlio"); //[cite: 9]
+      exit(EXIT_FAILURE); //[cite: 9]
     }
     if (pid == 0) {
-      // Processo figlio
-      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio
-      printf("Nuova connessione accettata, creando processo figlio...\n");
+      // Processo figlio[cite: 9]
+      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio[cite: 9]
+      printf("Nuova connessione accettata, creando processo figlio...\n"); //[cite: 9]
 
       while (1) {
         richiesta_t richiesta;
-        read(currentSocketfd, &richiesta, sizeof(richiesta));
-        risposta_server_t risposta;
-        utente_t utente = richiesta.utente;
-
-        switch (richiesta.operazione) {
-          case OP_CLI_LOGIN:
-            printf("Gestione operazione di login...\n");
-            risposta = operazione_login(richiesta);
-            break;
-          case OP_CLI_REGISTRAZIONE:
-            printf("Gestione operazione di registrazione...\n");
-            risposta = operazione_registrazione(richiesta);
-            break;
-          case OP_ESCI:
-            printf("Operazione di uscita richiesta dal client.\n");
-            risposta.esito = ESITO_OK;
-            break;
-          case OP_CLI_MIE_PRENOTAZ:
-            printf("Richiesta di visualizzazione prenotazione da: %s", utente.username);
-            
-            break;
-          case OP_CLI_NUOVA_PRENOTAZ:
-            printf("Nuova prenotazione richiesta da %s", utente.username);
-            //SERVER CHIEDE LA DISPONIBILITÀ AL CALENDARIO CHE DOPO MANDERÀ UNA STRINGA ALL'UTENTE
-            //TODO Nuova prenotazione
-            break;
-          case OP_CLI_CANCELLA_PRENOTAZ:
-          //TODO CANCELLAZIONE
-            printf("cancellazione..");
-          default:
-            printf("Operazione non riconosciuta dal server.\n");
+        if (read(currentSocketfd, &richiesta, sizeof(richiesta)) <= 0) {
+            printf("Client disconnesso.\n");
+            close(currentSocketfd);
+            exit(EXIT_FAILURE);
         }
 
-        LOG("RISPOSTA DEL SERVER ", risposta.esito);
+        utente_t utente = richiesta.utente; //[cite: 9]
 
-        write(currentSocketfd, &risposta, sizeof(risposta));
+        switch (richiesta.operazione) { //[cite: 9]
+          case OP_CLI_LOGIN: //[cite: 9]
+            printf("Gestione operazione di login...\n"); //[cite: 9]
+            operazione_login(currentSocketfd, richiesta);
+            break;
 
-        if (richiesta.operazione == OP_ESCI && risposta.esito == ESITO_OK) {
-            printf("Chiusura della connessione con il client...\n");
-            close(currentSocketfd);
-            exit(EXIT_SUCCESS);
+          case OP_CLI_REGISTRAZIONE: //[cite: 9]
+            printf("Gestione operazione di registrazione...\n"); //[cite: 9]
+            operazione_registrazione(currentSocketfd, richiesta);
+            break;
+
+          case OP_CLI_NUOVA_PRENOTAZ: //[cite: 9]
+            printf("Nuova prenotazione richiesta da %s\n", utente.username); //[cite: 9]
+            operazione_nuova_prenotazione(currentSocketfd, richiesta);
+            break;
+
+          case OP_ESCI: { //[cite: 9]
+            printf("Operazione di uscita richiesta dal client.\n"); //[cite: 9]
+            risposta_header_t risposta_esci = { .esito = ESITO_OK, .operazione = OP_ESCI, .payload_size = 0 };
+            strcpy(risposta_esci.messaggio, "Disconnessione confermata");
+            write(currentSocketfd, &risposta_esci, sizeof(risposta_esci));
+            
+            printf("Chiusura della connessione con il client...\n"); //[cite: 9]
+            close(currentSocketfd); //[cite: 9]
+            exit(EXIT_SUCCESS); //[cite: 9]
+          }
+
+          case OP_CLI_MIE_PRENOTAZ: //[cite: 9]
+            printf("Richiesta di visualizzazione prenotazione da: %s\n", utente.username); //[cite: 9]
+            // TODO
+            break;
+
+          case OP_CLI_CANCELLA_PRENOTAZ: //[cite: 9]
+            printf("cancellazione..\n"); //[cite: 9]
+            // TODO
+            break;
+
+          default: //[cite: 9]
+            printf("Operazione non riconosciuta dal server.\n"); //[cite: 9]
+            break;
         }
       }
     } else {
-      // Processo padre
-      printf("Connessione accettata, processo padre continua ad ascoltare...\n");
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
+      // Processo padre[cite: 9]
+      printf("Connessione accettata, processo padre continua ad ascoltare...\n"); //[cite: 9]
+      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre[cite: 9]
     }
   }
 }
