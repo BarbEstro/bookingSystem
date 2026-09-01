@@ -6,4 +6,8 @@
 void operazione_login(int client_sock, richiesta_t richiesta);
 void operazione_registrazione(int client_sock, richiesta_t richiesta);
 
+// Gestione Aule e Prenotazioni
+void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta);
+void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta);
+
 #endif // GESTIONE_OPERAZIONI_SERVER_H

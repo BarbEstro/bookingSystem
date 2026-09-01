@@ -1,6 +1,5 @@
 #include "gestione_operazioni_server.h"
 #include "gestione_login.h"
-#include "calendario.h" // Per usare i getter
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,23 +66,71 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
     write(client_sock, &header, sizeof(header));
 }
 
-void operazione_nuova_prenotazione(int client_sock, richiesta_t richiesta){
+void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta) {
+    size_t num_aule = 0;
+    
+    // 1. Carica le aule dal file binario "dati/risorse.bn"
+    // La funzione calcola automaticamente quante aule ci sono nel file!
+    risorsa_aula_t* aule = carica_risorse_da_file("dati/risorse.bn", &num_aule);
+
+    risposta_header_t header;
+    header.operazione = richiesta.operazione; // Usa automaticamente l'operazione della richiesta
+
+    if (aule != NULL && num_aule > 0) {
+        header.esito = ESITO_OK;
+        strcpy(header.messaggio, "Elenco aule per selezione");
+        header.num_elementi = (int)num_aule; 
+        header.payload_size = num_aule * sizeof(risorsa_aula_t); 
+    } else {
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Nessuna risorsa trovata sul server");
+        header.num_elementi = 0;
+        header.payload_size = 0;
+    }
+
+    // 2. Invio dell'header[cite: 5]
+    write(client_sock, &header, sizeof(header));
+
+    // 3. Invio dell'array automatico[cite: 5]
+    if (header.payload_size > 0) {
+        write(client_sock, aule, header.payload_size);
+    }
+
+    // 4. Libera la memoria allocata dalla malloc della carica_risorse_da_file
+    free(aule);
+}
+
+void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta) {
+    richiesta_prenotazione_t dati_prenotazione;
     risposta_header_t header;
     header.operazione = OP_CLI_NUOVA_PRENOTAZ;
+    header.num_elementi = 0;
+    header.payload_size = 0;
 
-    // Recuperiamo il calendario caricato in RAM
-    int tot_aule = get_num_aule_totali(); 
-    disponibilita_aula_t *calendario = get_calendario_in_ram(); 
-
-    header.esito = ESITO_OK;
-    strcpy(header.messaggio, "Lista aule disponibili");
-    header.num_elementi = tot_aule;
-    header.payload_size = tot_aule * sizeof(disponibilita_aula_t);
-
-    // 1. Invio prima l'Header
-    write(client_sock, &header, sizeof(header));
-    // 2. Se ci sono aule, invio l'intero array direttamente dalla memoria
-    if (header.payload_size > 0) {
-        write(client_sock, calendario, header.payload_size);
+    // 1. Legge il payload inviato dal client contenente la scelta dell'utente
+    if (read(client_sock, &dati_prenotazione, sizeof(richiesta_prenotazione_t)) <= 0) {
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Errore nella ricezione dei dati di prenotazione");
+        write(client_sock, &header, sizeof(header));
+        return;
     }
+
+    // 2. Prepara la struct prenotazione completa
+    prenotazione_t nuova_p;
+    nuova_p.id_risorsa = dati_prenotazione.id_risorsa;
+    strcpy(nuova_p.data, dati_prenotazione.data);
+    strcpy(nuova_p.ora_inizio, dati_prenotazione.ora_inizio);
+    strcpy(nuova_p.ora_fine, dati_prenotazione.ora_fine);
+    nuova_p.utente = richiesta.utente;
+    nuova_p.stato = ATTESA; // La prenotazione nasce in attesa di approvazione/conferma
+
+    // 3. Controllo conflitti orari ed eventuale salvataggio (da implementare con file/RAM)
+    // if (verifica_disponibilita_aula(...)) { ... }
+    
+    header.esito = ESITO_OK;
+    strcpy(header.messaggio, "Prenotazione inviata con successo!");
+
+    // 4. Risposta al client
+    write(client_sock, &header, sizeof(header));
 }
+

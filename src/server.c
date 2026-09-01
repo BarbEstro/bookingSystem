@@ -3,37 +3,62 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "calendario.h"
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
 #include "debug.h"
 
-int main() {
-  printf("Inizio server...\n"); //[cite: 9]
-  SocketInfo serverSock = inizializzaSocketServer(); //[cite: 9]
-  struct sockaddr_in clientAddress; //[cite: 9]
-  int currentSocketfd; //[cite: 9]
-  carica_calendario_all_avvio(); //[cite: 9]
+risorsa_aula_t* carica_risorse_da_file(const char* filename) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) return NULL;
 
-  while (1) { //[cite: 9]
-    printf("In attesa di connessioni...\n"); //[cite: 9]
-    socklen_t clientAddressLength = sizeof(clientAddress); //[cite: 9]
-    currentSocketfd = accept(serverSock.socketfd, (struct sockaddr*)&clientAddress, &clientAddressLength); //[cite: 9]
-    if (currentSocketfd < 0) { //[cite: 9]
-      perror("Errore nell'accept del socket"); //[cite: 9]
-      exit(EXIT_FAILURE); //[cite: 9]
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    size_t num_risorse = file_size / sizeof(risorsa_aula_t);
+    
+    // Allochiamo spazio per gli elementi + 1 elemento "sentinella" di fine array
+    risorsa_aula_t* risorse = malloc((num_risorse + 1) * sizeof(risorsa_aula_t));
+    if (!risorse) {
+        fclose(file);
+        return NULL;
     }
 
-    pid_t pid = fork(); //[cite: 9]
-    if (pid < 0) { //[cite: 9]
-      perror("Errore nella creazione del processo figlio"); //[cite: 9]
-      exit(EXIT_FAILURE); //[cite: 9]
+    fread(risorse, sizeof(risorsa_aula_t), num_risorse, file);
+    fclose(file);
+
+    // Impostiamo l'ultimo elemento come terminatore
+    risorse[num_risorse].id_risorsa = -1; 
+
+    return risorse;
+}
+
+int main() {
+  printf("Inizio server...\n"); 
+  SocketInfo serverSock = inizializzaSocketServer(); 
+  struct sockaddr_in clientAddress; 
+  int currentSocketfd;
+  risorsa_aula_t* risorse = carica_risorse_da_file("dati/risorse.bn");
+
+  while (1) { 
+    printf("In attesa di connessioni...\n"); 
+    socklen_t clientAddressLength = sizeof(clientAddress); 
+    currentSocketfd = accept(serverSock.socketfd, (struct sockaddr*)&clientAddress, &clientAddressLength); 
+    if (currentSocketfd < 0) { 
+      perror("Errore nell'accept del socket"); 
+      exit(EXIT_FAILURE); 
+    }
+
+    pid_t pid = fork(); 
+    if (pid < 0) { 
+      perror("Errore nella creazione del processo figlio"); 
+      exit(EXIT_FAILURE); 
     }
     if (pid == 0) {
       // Processo figlio[cite: 9]
       close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio[cite: 9]
-      printf("Nuova connessione accettata, creando processo figlio...\n"); //[cite: 9]
+      printf("Nuova connessione accettata, creando processo figlio...\n"); 
 
       while (1) {
         richiesta_t richiesta;
@@ -43,53 +68,59 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
-        utente_t utente = richiesta.utente; //[cite: 9]
+        utente_t utente = richiesta.utente; 
 
-        switch (richiesta.operazione) { //[cite: 9]
-          case OP_CLI_LOGIN: //[cite: 9]
-            printf("Gestione operazione di login...\n"); //[cite: 9]
+        switch (richiesta.operazione) { 
+          case OP_CLI_LOGIN: 
+            printf("Gestione operazione di login...\n"); 
             operazione_login(currentSocketfd, richiesta);
             break;
 
-          case OP_CLI_REGISTRAZIONE: //[cite: 9]
-            printf("Gestione operazione di registrazione...\n"); //[cite: 9]
+          case OP_CLI_REGISTRAZIONE: 
+            printf("Gestione operazione di registrazione...\n"); 
             operazione_registrazione(currentSocketfd, richiesta);
             break;
 
-          case OP_CLI_NUOVA_PRENOTAZ: //[cite: 9]
-            printf("Nuova prenotazione richiesta da %s\n", utente.username); //[cite: 9]
-            operazione_nuova_prenotazione(currentSocketfd, richiesta);
+          case OP_CLI_LISTA_RISORSE: 
+            printf("Richiesta di elenco risorse da: %s\n", utente.username); 
+            operazione_invia_catalogo_aule(currentSocketfd, richiesta);
             break;
 
-          case OP_ESCI: { //[cite: 9]
-            printf("Operazione di uscita richiesta dal client.\n"); //[cite: 9]
+          case OP_CLI_NUOVA_PRENOTAZ: 
+            printf("Nuova prenotazione richiesta da %s\n", utente.username);
+            operazione_invia_catalogo_aule(currentSocketfd, richiesta);
+
+            break;
+
+          case OP_ESCI: { 
+            printf("Operazione di uscita richiesta dal client.\n"); 
             risposta_header_t risposta_esci = { .esito = ESITO_OK, .operazione = OP_ESCI, .payload_size = 0 };
             strcpy(risposta_esci.messaggio, "Disconnessione confermata");
             write(currentSocketfd, &risposta_esci, sizeof(risposta_esci));
             
-            printf("Chiusura della connessione con il client...\n"); //[cite: 9]
-            close(currentSocketfd); //[cite: 9]
-            exit(EXIT_SUCCESS); //[cite: 9]
+            printf("Chiusura della connessione con il client...\n"); 
+            close(currentSocketfd); 
+            exit(EXIT_SUCCESS); 
           }
 
-          case OP_CLI_MIE_PRENOTAZ: //[cite: 9]
-            printf("Richiesta di visualizzazione prenotazione da: %s\n", utente.username); //[cite: 9]
+          case OP_CLI_MIE_PRENOTAZ: 
+            printf("Richiesta di visualizzazione prenotazione da: %s\n", utente.username); 
             // TODO
             break;
 
-          case OP_CLI_CANCELLA_PRENOTAZ: //[cite: 9]
-            printf("cancellazione..\n"); //[cite: 9]
+          case OP_CLI_CANCELLA_PRENOTAZ: 
+            printf("cancellazione..\n"); 
             // TODO
             break;
 
-          default: //[cite: 9]
-            printf("Operazione non riconosciuta dal server.\n"); //[cite: 9]
+          default: 
+            printf("Operazione non riconosciuta dal server.\n"); 
             break;
         }
       }
     } else {
       // Processo padre[cite: 9]
-      printf("Connessione accettata, processo padre continua ad ascoltare...\n"); //[cite: 9]
+      printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
       close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre[cite: 9]
     }
   }

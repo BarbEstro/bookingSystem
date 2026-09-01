@@ -79,6 +79,13 @@ typedef struct {
     utente_t utente;
 } richiesta_t;
 
+typedef struct {
+    int id_risorsa;
+    char data[11];      // Formato: YYYY-MM-DD
+    char ora_inizio[6]; // Formato: HH:MM
+    char ora_fine[6];   // Formato: HH:MM
+} richiesta_prenotazione_t;
+
 //==========================================
 // 4. MESSAGGIO DI RISPOSTA Server -> Client
 //==========================================

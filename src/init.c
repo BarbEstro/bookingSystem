@@ -41,19 +41,6 @@ void inizializza_risorse_disponibilita() {
     fclose(file_risorse);
     printf("[OK] Salvate %zu risorse in dati/risorse.bn\n", n_risorse);
   }
-
-  FILE* file_disponibilita = fopen("dati/calendario.bn", "wb");
-  if(file_disponibilita != NULL){
-    disponibilita_aula_t calendario[n_risorse];
-    for(int i = 0; i < n_risorse; i++){
-      calendario[i].aula = aule[i];
-      for(int j = 0; j < ORE; j++){
-        calendario[i].ore_stato[j] = 0;
-      }
-    }
-    fwrite(calendario,sizeof(disponibilita_aula_t),n_risorse,file_disponibilita);
-    fclose(file_disponibilita);
-  }
 }
 
 int main() {

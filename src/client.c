@@ -71,9 +71,8 @@ int main() {
     interfaccia_utente_cliente();
     op_cliente_t scelta = operazioni_cliente();
     manda_richiesta_operazione(clientSock, scelta, utente_esecuzione);
+    gestisci_operazione_cliente(clientSock, scelta, utente_esecuzione);
     
-    // NOTA: Anche qui, quando gestirai la risposta di manda_richiesta_operazione, 
-    // farai la stessa cosa: una prima read per l'Header, e una seconda per le Aule/Prenotazioni!
   }
 }
 
