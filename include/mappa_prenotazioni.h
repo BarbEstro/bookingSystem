@@ -1,6 +1,8 @@
 #ifndef MAPPA_PRENOTAZIONI_H
 #define MAPPA_PRENOTAZIONI_H
 
+//TODO aggiunta di stampa o log per il servers
+
 #include "booking_system_struct.h"
 #include <stdbool.h>
 
