@@ -6,6 +6,7 @@
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "interfaccia_ui.h"
+#include "gestione_operazioni_client.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
 void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente);

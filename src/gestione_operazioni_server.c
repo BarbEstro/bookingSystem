@@ -67,11 +67,16 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
 }
 
 void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta) {
-    size_t num_aule = 0;
-    
     // 1. Carica le aule dal file binario "dati/risorse.bn"
-    // La funzione calcola automaticamente quante aule ci sono nel file!
-    risorsa_aula_t* aule = carica_risorse_da_file("dati/risorse.bn", &num_aule);
+    // La funzione definita in src/server.c restituisce un array terminato
+    // con un elemento con id_risorsa == -1; calcoliamo il numero di elementi.
+    risorsa_aula_t* aule = carica_risorse_da_file("dati/risorse.bn");
+    size_t num_aule = 0;
+    if (aule != NULL) {
+        while (aule[num_aule].id_risorsa != -1) {
+            num_aule++;
+        }
+    }
 
     risposta_header_t header;
     header.operazione = richiesta.operazione; // Usa automaticamente l'operazione della richiesta

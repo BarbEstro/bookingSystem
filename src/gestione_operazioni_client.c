@@ -2,21 +2,17 @@
 #include "comunicazioneSocket.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 void gestisci_operazione_cliente(SocketInfo clientSock, op_cliente_t scelta, utente_t utente) {
     switch (scelta) {
         case OP_CLI_NUOVA_PRENOTAZ:
-            
-
+            gestisci_operazione_nuova_prenotazione(clientSock, utente);
             break;
 
         case OP_CLI_MIE_PRENOTAZ:
-            gestisci_mie_prenotazioni(clientSock, utente);
-            break;
-
-        case OP_CLI_CANCELLA_PRENOTAZ:
-            // TODO
+            //gestisci_mie_prenotazioni(clientSock, utente);
             break;
 
         default:
@@ -24,51 +20,72 @@ void gestisci_operazione_cliente(SocketInfo clientSock, op_cliente_t scelta, ute
     }
 }
 
-void gestisci_operazione_catalogo_aule(SocketInfo clientSock, utente_t utente){
-    risposta_header_t header;
-    if (read(clientSock.socketfd, &header, sizeof(risposta_header_t)) <= 0) {
-        printf("[ERRORE] Impossibile leggere l'header dal server.\n");
-        return;
-    }
+void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente_t utente) {
+    // =========================================================================
+    // FASE 1: Richiesta catalogo aule al server
+    // =========================================================================
+    richiesta_t req_aule;
+    req_aule.operazione = OP_CLI_LISTA_RISORSE;
+    req_aule.utente = utente;
+    
+    // Invia richiesta d'elenco aule
+    write(clientSock.socketfd, &req_aule, sizeof(richiesta_t));
 
-    if (header.esito == ESITO_KO) {
-        printf("[ERRORE SERVER] %s\n", header.messaggio);
+    // Legge la risposta delle aule
+    risposta_header_t header;
+    if (read(clientSock.socketfd, &header, sizeof(risposta_header_t)) <= 0 || header.esito == ESITO_KO) {
+        printf("[ERRORE] Impossibile recuperare il catalogo delle aule.\n");
         return;
     }
 
     risorsa_aula_t *aule = NULL;
-
     if (header.payload_size > 0) {
-        // Allochiamo in RAM la memoria esatta comunicata dall'header
         aule = malloc(header.payload_size);
-        if (aule == NULL) {
-            perror("Errore di allocazione memoria per le aule");
-            return;
-        }
-
-        // Eseguiamo la seconda read leggendo ESATTAMENTE payload_size byte
         if (read(clientSock.socketfd, aule, header.payload_size) <= 0) {
-            printf("[ERRORE] Impossibile leggere il catalogo delle aule.\n");
+            printf("[ERRORE] Errore nel trasferimento delle aule.\n");
             free(aule);
             return;
         }
     }
 
-    printf("\n=== AULE DISPONIBILI NEL SISTEMA (%d) ===\n", header.num_elementi);
+    // =========================================================================
+    // FASE 2: Stampa aule e raccolta scelta utente
+    // =========================================================================
+    printf("\n=== AULE DISPONIBILI PER LA PRENOTAZIONE (%d) ===\n", header.num_elementi);
     for (int i = 0; i < header.num_elementi; i++) {
-        printf("[%d] %s (Capienza: %d posti)\n", 
-               aule[i].id_risorsa, 
-               aule[i].nome, 
-               aule[i].capienza);
+        printf("[%d] %s (Capienza: %d posti)\n", aule[i].id_risorsa, aule[i].nome, aule[i].capienza);
     }
+    free(aule); // Liberiamo subito la RAM
 
-    
+    richiesta_prenotazione_t dati_p;
+    printf("\n--- Dettagli nuova prenotazione ---\n");
+    printf("Inserisci ID dell'aula scelta: ");
+    scanf("%d", &dati_p.id_risorsa);
+    printf("Inserisci data (YYYY-MM-DD): ");
+    scanf("%10s", dati_p.data);
+    printf("Inserisci ora inizio (HH:MM): ");
+    scanf("%5s", dati_p.ora_inizio);
+    printf("Inserisci ora fine (HH:MM): ");
+    scanf("%5s", dati_p.ora_fine);
 
-    // Una volta stampate, liberiamo la memoria allocata dalla malloc
-    free(aule);
-}
+    // =========================================================================
+    // FASE 3: Invia la vera e propria richiesta di prenotazione
+    // =========================================================================
+    richiesta_t req_prenotazione;
+    req_prenotazione.operazione = OP_CLI_NUOVA_PRENOTAZ;
+    req_prenotazione.utente = utente;
 
+    // Invia prima la richiesta con opzione NUOVA_PRENOTAZ
+    write(clientSock.socketfd, &req_prenotazione, sizeof(richiesta_t));
+    // Subito dopo invia il payload con le scelte dell'utente
+    write(clientSock.socketfd, &dati_p, sizeof(richiesta_prenotazione_t));
 
-void gestisci_mie_prenotazioni(SocketInfo clientSock, utente_t utente) {
-    // Stessa struttura pulita per visualizzare le prenotazioni dell'utente
+    // Legge l'esito finale restituito dal server
+    if (read(clientSock.socketfd, &header, sizeof(risposta_header_t)) > 0) {
+        if (header.esito == ESITO_OK) {
+            printf("\n[ESITO OK] %s\n", header.messaggio);
+        } else {
+            printf("\n[ESITO ERRORE] %s\n", header.messaggio);
+        }
+    }
 }
