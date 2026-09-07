@@ -24,19 +24,30 @@ typedef struct {
     size_t num_aule;
 } mappa_t;
 
+typedef bool (*predicato_prenotazione_t)(const prenotazione_t*, void*);
+
 // Alloca la mappa dinamicamente in base agli ID aule caricati
 mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule);
 
 // Inserisce una nuova prenotazione nel bucket dell'aula corrispondente
-bool mappa_inserisci(mappa_t* mappa, int id_aula, prenotazione_t p);
+bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula, prenotazione_t p);
 
 // Ritorna il puntatore alla testa della lista di prenotazioni per una determinata aula
-//nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula);
+nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula);
 
 // Rimuove una specifica prenotazione tramite il suo id_prenotazione
 bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula, int id_prenotazione);
 
+// Predicato usato da mappa_filtra_prenotazioni: ritorna true se 'p' soddisfa il criterio di ricerca
+typedef bool (*prenotazione_predicato_t)(const prenotazione_t* p, void* contesto);
+
+prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, 
+                                            predicato_prenotazione_t predicato, 
+                                            void* contesto, 
+                                            size_t* count);
+                                            
 // Distrugge l'intera mappa e libera tutta la memoria allocata (nodi + bucket)
 void libera_mappa(mappa_t* mappa);
+
 
 #endif // MAPPA_PRENOTAZIONI_H

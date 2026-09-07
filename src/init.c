@@ -4,16 +4,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void inizializzazione_cartella() {
+static size_t contatore_id_risorse(size_t* count) {
+  *count = *count + 1;
+  return *count;
+}
+
+static void inizializzazione_cartella() {
   system("rm -rf dati");  // Il flag -r cancella RICORSIVAMENTE anche la cartella!
   system("mkdir dati");  // Ora la ricrea vuota da zero
 }
 
-void creazione_file_utenza() {
+static void creazione_file_utenza() {
   utente_t utenti[] = {{"pippo", "pappo", false},
                        {"pluto", "plato", false},
                        {"admin", "admin123", true}};
-                       //aggiungi utente
+  // aggiungi utente
 
   int n_utenti = sizeof(utenti) / sizeof(utente_t);
 
@@ -22,17 +27,18 @@ void creazione_file_utenza() {
   }
 }
 
-void inizializza_risorse_disponibilita() {
-  risorsa_aula_t aule[] = {{101, "Aula Magna", 150},
-                              {102, "Laboratorio Informatica A", 30},
-                              {103, "Laboratorio Informatica B", 25},
-                              {201, "Aula Studio 1", 40},
-                              {202, "Aula Studio 2", 20},
-                              {301, "Sala Conferenze", 80},
-                              {302, "Aula Seminari", 15}};
-                              //Aggiungi aula
-
-  size_t n_risorse = sizeof(aule) / sizeof(aule[0]);
+static void inizializza_risorse_disponibilita() {
+  size_t n_risorse = 0;
+  risorsa_aula_t aule[] = {
+      {contatore_id_risorse(&n_risorse), "Aula Magna", 150},
+      {contatore_id_risorse(&n_risorse), "Laboratorio Informatica A", 30},
+      {contatore_id_risorse(&n_risorse), "Laboratorio Informatica B", 25},
+      {contatore_id_risorse(&n_risorse), "Aula Studio 1", 40},
+      {contatore_id_risorse(&n_risorse), "Aula Studio 2", 20},
+      {contatore_id_risorse(&n_risorse), "Sala Conferenze", 80},
+      {contatore_id_risorse(&n_risorse), "Aula Seminari", 15}
+       // Aggiungi aula
+    };
 
   // Esempio di salvataggio su binario "dati/risorse.bn"
   FILE* file_risorse = fopen("dati/risorse.bn", "wb");
@@ -44,7 +50,7 @@ void inizializza_risorse_disponibilita() {
 }
 
 int main() {
-    inizializzazione_cartella();
-    creazione_file_utenza();
-    inizializza_risorse_disponibilita();
+  inizializzazione_cartella();
+  creazione_file_utenza();
+  inizializza_risorse_disponibilita();
 }

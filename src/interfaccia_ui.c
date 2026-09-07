@@ -33,7 +33,7 @@ static const VoceMenu MENU_CLIENTE[] = {
 static const int NUM_CLIENTE = sizeof(MENU_CLIENTE) / sizeof(MENU_CLIENTE[0]);
 
 static const VoceMenu MENU_ADMIN[] = {
-    {1, "Visualizza tutte le prenotazioni", OP_ADM_LISTA_TUTTE},
+    {1, "Visualizza tutte le prenotazioni", OP_ADM_LISTA_ATTESA},
     {2, "Gestisci le prenotazioni", OP_ADM_APPROVA_PRENOTAZ},
     {0, "Esci", OP_ESCI}
 };

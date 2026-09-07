@@ -1,10 +1,14 @@
 #include "gestione_operazioni_server.h"
 #include "gestione_login.h"
+#include "mappa_prenotazioni.h"
+#include "predicati_prenotazioni.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "debug.h"
+#include <time.h>
 
 void operazione_login(int client_sock, richiesta_t richiesta) {
     risposta_header_t header;
@@ -66,17 +70,7 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
     write(client_sock, &header, sizeof(header));
 }
 
-void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta) {
-    // 1. Carica le aule dal file binario "dati/risorse.bn"
-    // La funzione definita in src/server.c restituisce un array terminato
-    // con un elemento con id_risorsa == -1; calcoliamo il numero di elementi.
-    risorsa_aula_t* aule = carica_risorse_da_file("dati/risorse.bn");
-    size_t num_aule = 0;
-    if (aule != NULL) {
-        while (aule[num_aule].id_risorsa != -1) {
-            num_aule++;
-        }
-    }
+void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta, risorsa_aula_t* aule, size_t num_aule) {
 
     risposta_header_t header;
     header.operazione = richiesta.operazione; // Usa automaticamente l'operazione della richiesta
@@ -84,7 +78,7 @@ void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta) {
     if (aule != NULL && num_aule > 0) {
         header.esito = ESITO_OK;
         strcpy(header.messaggio, "Elenco aule per selezione");
-        header.num_elementi = (int)num_aule; 
+        header.num_elementi = (int)num_aule;
         header.payload_size = num_aule * sizeof(risorsa_aula_t); 
     } else {
         header.esito = ESITO_KO;
@@ -93,19 +87,16 @@ void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta) {
         header.payload_size = 0;
     }
 
-    // 2. Invio dell'header[cite: 5]
+    // 1. Invio dell'header
     write(client_sock, &header, sizeof(header));
 
-    // 3. Invio dell'array automatico[cite: 5]
-    if (header.payload_size > 0) {
+    // 2. Invio del payload con l'array di aule
+    if (header.esito == ESITO_OK && header.payload_size > 0) {
         write(client_sock, aule, header.payload_size);
     }
-
-    // 4. Libera la memoria allocata dalla malloc della carica_risorse_da_file
-    free(aule);
 }
 
-void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta) {
+void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
     richiesta_prenotazione_t dati_prenotazione;
     risposta_header_t header;
     header.operazione = OP_CLI_NUOVA_PRENOTAZ;
@@ -120,17 +111,21 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta) {
         return;
     }
 
-    // 2. Prepara la struct prenotazione completa
+    // 2. Valida la data e l'orario della prenotazione
     prenotazione_t nuova_p;
     nuova_p.id_risorsa = dati_prenotazione.id_risorsa;
-    strcpy(nuova_p.data, dati_prenotazione.data);
-    strcpy(nuova_p.ora_inizio, dati_prenotazione.ora_inizio);
-    strcpy(nuova_p.ora_fine, dati_prenotazione.ora_fine);
-    nuova_p.utente = richiesta.utente;
-    nuova_p.stato = ATTESA; // La prenotazione nasce in attesa di approvazione/conferma
-
-    // 3. Controllo conflitti orari ed eventuale salvataggio (da implementare con file/RAM)
-    // if (verifica_disponibilita_aula(...)) { ... }
+    if(valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine, header.messaggio)) {
+        strcpy(nuova_p.data, dati_prenotazione.data);
+        strcpy(nuova_p.ora_inizio, dati_prenotazione.ora_inizio);
+        strcpy(nuova_p.ora_fine, dati_prenotazione.ora_fine);
+        nuova_p.stato = ATTESA;
+        nuova_p.utente = richiesta.utente;
+        mappa_inserisci_prenotazione(mappa_prenotazioni, dati_prenotazione.id_risorsa, nuova_p);
+    } else {
+        header.esito = ESITO_KO;
+        write(client_sock, &header, sizeof(header));
+        return;
+    }
     
     header.esito = ESITO_OK;
     strcpy(header.messaggio, "Prenotazione inviata con successo!");
@@ -139,3 +134,109 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta) {
     write(client_sock, &header, sizeof(header));
 }
 
+void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
+    size_t count = 0;
+    prenotazione_t* risultati = mappa_filtra_prenotazioni(mappa_prenotazioni, predicato_per_username, richiesta.utente.username, &count);
+    invia_elenco_prenotazioni(client_sock, OP_CLI_MIE_PRENOTAZ, risultati, count);
+}
+
+// Invia al client l'array 'risultati' (gia' filtrato) come risposta a 'operazione'
+static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione, prenotazione_t* risultati, size_t count) {
+    risposta_header_t header;
+    header.operazione = operazione;
+
+    if (risultati != NULL && count > 0) {
+        header.esito = ESITO_OK;
+        strcpy(header.messaggio, "Elenco prenotazioni");
+        header.num_elementi = (int)count;
+        header.payload_size = count * sizeof(prenotazione_t);
+    } else {
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Nessuna prenotazione trovata");
+        header.num_elementi = 0;
+        header.payload_size = 0;
+    }
+
+    write(client_sock, &header, sizeof(header));
+    if (header.esito == ESITO_OK) {
+        write(client_sock, risultati, header.payload_size);
+    }
+    free(risultati);
+}
+
+// Popola 'buffer' con la data odierna nel formato "YYYY-MM-DD" (es. "2026-09-03")
+static void ottieni_data_odierna(char *buffer, size_t size) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    strftime(buffer, size, "%Y-%m-%d", tm_info);
+}
+
+// Popola 'buffer' con l'ora attuale nel formato "HH:MM" (es. "14:30")
+static void ottieni_ora_odierna(char *buffer, size_t size) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    strftime(buffer, size, "%H:%M", tm_info);
+}
+
+static bool valida_data_e_ora(const char *data_req, const char *ora_inizio, const char *ora_fine, char *msg_errore) {
+    char data_oggi[11];
+    char ora_oggi[6];
+
+    ottieni_data_odierna(data_oggi, sizeof(data_oggi));
+    ottieni_ora_odierna(ora_oggi, sizeof(ora_oggi));
+
+    // 1. Controllo coerenza orario: ora_inizio deve precedere ora_fine
+    if (strcmp(ora_inizio, ora_fine) >= 0) {
+        strcpy(msg_errore, "Errore: L'ora di inizio deve essere precedente all'ora di fine.");
+        return false;
+    }
+
+    // 2. Controllo Data: non puo essere nel passato
+    int cmp_data = strcmp(data_req, data_oggi);
+    
+    if (cmp_data < 0) {
+        strcpy(msg_errore, "Errore: Impossibile prenotare per una data passata.");
+        return false;
+    }
+
+
+    // 3. Se la data e OGGI, l'ora di inizio non puo essere gia passata
+    if (cmp_data == 0) {
+        if (strcmp(ora_inizio, ora_oggi) <= 0) {
+            strcpy(msg_errore, "Errore: Per oggi l'ora di inizio deve essere successiva all'ora attuale.");
+            return false;
+        }
+    }
+
+    // 4. Controllo fascia oraria consentita: 08:00 - 19:00
+    if (strcmp(ora_inizio, "08:00") < 0 || strcmp(ora_fine, "19:00") > 0) {
+      strcpy(msg_errore,
+             "Errore: Le prenotazioni sono consentite solo tra le 08:00 e le "
+             "19:00.");
+      return false;
+    }
+    return true; // Tutti i controlli sono superati
+}
+
+static bool verifica_disponibilita_aula(mappa_t* mappa, int id_aula, const char* data, const char* ora_inizio, const char* ora_fine) {
+    nodo_prenotazione_t* lista_prenotazioni = mappa_ottieni_lista(mappa, id_aula);
+    if (lista_prenotazioni == NULL) {
+        // Nessuna prenotazione esistente per questa aula
+        return true;
+    }
+
+    while (lista_prenotazioni != NULL) {
+        prenotazione_t p = lista_prenotazioni->dato;
+
+        // Controllo se la data coincide
+        if (strcmp(p.data, data) == 0) {
+            // Controllo sovrapposizione oraria
+            if (!(strcmp(ora_fine, p.ora_inizio) <= 0 || strcmp(ora_inizio, p.ora_fine) >= 0)) {
+                // Sovrapposizione trovata
+                return false;
+            }
+        }
+        lista_prenotazioni = lista_prenotazioni->next;
+    }
+    return true; // Nessuna sovrapposizione trovata
+}

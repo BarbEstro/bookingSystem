@@ -1,85 +1,112 @@
 #include "mappa_prenotazioni.h"
+
 #include <stdlib.h>
 
-mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule){
-    if(aule == NULL || num_aule == 0) return NULL;
+mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule) {
+  if (aule == NULL || num_aule == 0) return NULL;
 
-    mappa_t* mappa = malloc(sizeof(mappa_t));
-    if(mappa == NULL) return NULL;
+  mappa_t* mappa = malloc(sizeof(mappa_t));
+  if (mappa == NULL) return NULL;
 
-   
-    mappa->num_aule = num_aule;
-    mappa->bucket = malloc(num_aule * sizeof(bucket_aula_t));
-    if(mappa->bucket == NULL){
-        free(mappa);
-        return NULL;
-    }
-
-    for(size_t i = 0; i < num_aule; i++){
-        mappa->bucket[i].id_risorsa = aule[i].id_risorsa;
-        mappa->bucket[i].testa = NULL;
-    }
-
-    return mappa;
-    
-}
-
-bool mappa_inserisci(mappa_t* mappa, int id_aula, prenotazione_t p){
-    if(mappa == NULL) return false;
-
-    for(size_t i = 0; i < mappa->num_aule; i++){
-        if(mappa->bucket[i].id_risorsa == id_aula){
-            nodo_prenotazione_t* nuovo_nodo = malloc(sizeof(nodo_prenotazione_t));
-            if(nuovo_nodo == NULL) return false;
-
-            nuovo_nodo->dato = p;
-            nuovo_nodo->next = mappa->bucket[i].testa;
-            mappa->bucket[i].testa = nuovo_nodo;
-            return true;
-        }
-    }
-    return false; // Aula non trovata
-}
-
-bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula, int id_prenotazione){
-    if(mappa == NULL) return false;
-
-    for(size_t i = 0; i < mappa->num_aule; i++){
-        if(mappa->bucket[i].id_risorsa == id_aula){
-            nodo_prenotazione_t* current = mappa->bucket[i].testa;
-            nodo_prenotazione_t* prev = NULL;
-
-            while(current != NULL){
-                if(current->dato.id_prenotazione == id_prenotazione){
-                    if(prev == NULL){
-                        mappa->bucket[i].testa = current->next;
-                    } else {
-                        prev->next = current->next;
-                    }
-                    free(current);
-                    return true;
-                }
-                prev = current;
-                current = current->next;
-            }
-            return false; // Prenotazione non trovata
-        }
-    }
-    return false; // Aula non trovata
-}
-
-void libera_mappa(mappa_t* mappa){
-    if(mappa == NULL) return;
-
-    for(size_t i = 0; i < mappa->num_aule; i++){
-        nodo_prenotazione_t* current = mappa->bucket[i].testa;
-        while(current != NULL){
-            nodo_prenotazione_t* temp = current;
-            current = current->next;
-            free(temp);
-        }
-    }
-
-    free(mappa->bucket);
+  mappa->num_aule = num_aule;
+  mappa->bucket = malloc(num_aule * sizeof(bucket_aula_t));
+  if (mappa->bucket == NULL) {
     free(mappa);
+    return NULL;
+  }
+
+  for (size_t i = 0; i < num_aule; i++) {
+    mappa->bucket[i].id_risorsa = aule[i].id_risorsa;
+    mappa->bucket[i].testa = NULL;
+  }
+
+  return mappa;
+}
+
+bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,
+                                  prenotazione_t p) {
+  if (mappa == NULL) return false;
+  nodo_prenotazione_t* nuovo_nodo = malloc(sizeof(nodo_prenotazione_t));
+  if (nuovo_nodo == NULL) return false;
+  nuovo_nodo->dato = p;
+  nuovo_nodo->next = mappa->bucket[id_aula].testa;
+  mappa->bucket[id_aula].testa = nuovo_nodo;
+
+  return true;  // Inserimento riuscito
+}
+
+bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,
+                                int id_prenotazione) {
+  if (mappa == NULL) return false;
+  nodo_prenotazione_t* current = mappa->bucket[id_aula].testa;
+  nodo_prenotazione_t* prev = NULL;
+
+  while (current != NULL) {
+    if (current->dato.id_prenotazione == id_prenotazione) {
+      if (prev == NULL) {
+        mappa->bucket[id_aula].testa = current->next;
+      } else {
+        prev->next = current->next;
+      }
+      free(current);
+      return true;
+    }
+    prev = current;
+    current = current->next;
+  }
+}
+
+void libera_mappa(mappa_t* mappa) {
+  if (mappa == NULL) return;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    nodo_prenotazione_t* current = mappa->bucket[i].testa;
+    while (current != NULL) {
+      nodo_prenotazione_t* temp = current;
+      current = current->next;
+      free(temp);
+    }
+  }
+
+  free(mappa->bucket);
+  free(mappa);
+}
+
+nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula) {
+  if (mappa == NULL) return NULL;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      return mappa->bucket[i].testa;
+    }
+  }
+  return NULL;  // Aula non trovata
+}
+
+prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, prenotazione_predicato_t predicato, void* contesto, size_t* out_count) {
+  if (out_count != NULL) *out_count = 0;
+  if (mappa == NULL || predicato == NULL) return NULL;
+
+  // 1. Primo passaggio: conta quante prenotazioni soddisfano il predicato
+  size_t trovate = 0;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
+      if (predicato(&n->dato, contesto)) trovate++;
+    }
+  }
+  if (trovate == 0) return NULL;
+
+  // 2. Secondo passaggio: alloca e copia i risultati
+  prenotazione_t* risultati = malloc(trovate * sizeof(prenotazione_t));
+  if (risultati == NULL) return NULL;
+
+  size_t idx = 0;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
+      if (predicato(&n->dato, contesto)) risultati[idx++] = n->dato;
+    }
+  }
+
+  if (out_count != NULL) *out_count = trovate;
+  return risultati;
 }

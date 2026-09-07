@@ -1,4 +1,3 @@
-
 CC = gcc
 CFLAGS = -Wall -Iinclude
 RELEASE_FLAGS = -O2
@@ -12,7 +11,7 @@ SRC_DIR = src
 TEST_DIR = tests
 
 CLIENT_SRCS = $(SRC_DIR)/client.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/interfaccia_ui.c $(SRC_DIR)/gestione_operazioni_client.c
-SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_operazioni_server.c
+SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_operazioni_server.c $(SRC_DIR)/mappa_prenotazioni.c $(SRC_DIR)/predicati_prenotazioni.c
 INIT_SRCS = $(SRC_DIR)/init.c $(SRC_DIR)/gestione_login.c
 TEST_SRCS = $(TEST_DIR)/test_gestione_login.c $(SRC_DIR)/gestione_login.c
 TEST_UI_SRCS = $(TEST_DIR)/test_interfaccia_ui.c $(SRC_DIR)/interfaccia_ui.c
@@ -69,4 +68,4 @@ run-server: server
 run-client: client
 	$(BIN_DIR)/client
 
-.PHONY: all client server init run-init test_login test_interfaccia_ui clean clean-tests
+.PHONY: all debug client server init run-init test_login test_interfaccia_ui clean clean-tests run-server run-client
