@@ -182,7 +182,6 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     nuova_p.utente = richiesta.utente;
 
     mappa_salva_prenotazione_su_file(nuova_p);
-    mappa_inserisci_prenotazione(mappa_prenotazioni, nuova_p.id_risorsa, nuova_p);
 
     rilascia_lock(lock_fd);
 
