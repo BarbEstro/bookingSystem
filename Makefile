@@ -57,6 +57,7 @@ run-init: init
 clean:
 	rm -f $(CLIENT_OBJS) $(SERVER_OBJS) $(INIT_OBJS) $(TEST_OBJS) $(TEST_UI_OBJS) *.o
 	rm -rf $(BIN_DIR)
+	rm -rf dati
 
 # Separate rule to clean test artifacts when desired
 clean-tests:

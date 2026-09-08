@@ -5,16 +5,17 @@
 
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
-#include "interfaccia_ui.h"
 #include "gestione_operazioni_client.h"
+#include "interfaccia_ui.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
-void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente);
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,
+                                utente_t utente);
 
 int main() {
   SocketInfo clientSock = inizializzaSocketClient();
   utente_t utente_esecuzione;
-  risposta_header_t risposta; 
+  risposta_header_t risposta;
   bool isAdmin = false;
 
   do {
@@ -24,8 +25,8 @@ int main() {
 
     // 1. PRIMA READ: Leggiamo solo l'Header (le "istruzioni")
     if (read(clientSock.socketfd, &risposta, sizeof(risposta)) <= 0) {
-        printf("Errore di comunicazione con il server.\n");
-        exit(1);
+      printf("Errore di comunicazione con il server.\n");
+      exit(1);
     }
 
     switch (risposta.esito) {
@@ -38,14 +39,17 @@ int main() {
         if (scelta == OP_CLI_LOGIN) {
           // 2. SECONDA READ: Il server ha detto OK e ci sta mandando l'utente
           if (risposta.payload_size > 0) {
-              read(clientSock.socketfd, &utente_esecuzione, risposta.payload_size);
+            read(clientSock.socketfd, &utente_esecuzione,
+                 risposta.payload_size);
           }
-          
-          printf("%s - Benvenuto %s!\n", risposta.messaggio, utente_esecuzione.username);
+
+          printf("%s - Benvenuto %s!\n", risposta.messaggio,
+                 utente_esecuzione.username);
           isAdmin = utente_esecuzione.isAdmin;
-          
+
         } else if (scelta == OP_CLI_REGISTRAZIONE) {
-          // Nessuna seconda read: la registrazione non invia payload (payload_size = 0)
+          // Nessuna seconda read: la registrazione non invia payload
+          // (payload_size = 0)
           printf("%s\n", risposta.messaggio);
         }
         break;
@@ -62,18 +66,24 @@ int main() {
     }
   } while (risposta.esito == ESITO_KO);
 
+  op_cliente_t scelta_utente;
+
   // Da qui in poi il codice è invariato!
   if (isAdmin) {
-    printf("Accesso come amministratore.\n");
-    interfaccia_utente_admin();
-    // TODO: Aggiungere logica operazioni admin
+    do {
+      printf("Accesso come amministratore.\n");
+      interfaccia_utente_admin();
+      scelta_utente = operazioni_admin();
+
+    } while (scelta_utente != OP_ESCI);
   } else {
-    printf("Accesso come cliente.\n");
-    interfaccia_utente_cliente();
-    op_cliente_t scelta = operazioni_cliente();
-    manda_richiesta_operazione(clientSock, scelta, utente_esecuzione);
-    gestisci_operazione_cliente(clientSock, scelta, utente_esecuzione);
-    
+    do {
+      printf("Accesso come cliente.\n");
+      interfaccia_utente_cliente();
+      scelta_utente = operazioni_cliente();
+      gestisci_operazione_cliente(clientSock, scelta_utente, utente_esecuzione);
+
+    } while (scelta_utente != OP_ESCI);
   }
 }
 
@@ -88,19 +98,11 @@ void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
   richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
-    scanf("%10s", richiesta.utente.username); // Aggiunto limite per sicurezza
+    scanf("%10s", richiesta.utente.username);  // Aggiunto limite per sicurezza
     printf("Inserisci la tua password [Max 20 caratteri]: ");
-    scanf("%20s", richiesta.utente.password); // Aggiunto limite per sicurezza
+    scanf("%20s", richiesta.utente.password);  // Aggiunto limite per sicurezza
   }
 
   // Invia i dati al server
-  write(clientSock.socketfd, &richiesta, sizeof(richiesta));
-}
-
-void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta, utente_t utente) {
-  richiesta_t richiesta;
-  richiesta.operazione = scelta;
-  richiesta.utente = utente;
-
   write(clientSock.socketfd, &richiesta, sizeof(richiesta));
 }

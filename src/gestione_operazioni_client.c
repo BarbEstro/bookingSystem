@@ -5,6 +5,16 @@
 #include <string.h>
 #include <unistd.h>
 
+// Converte lo stato numerico della prenotazione nella sua descrizione testuale
+static const char* stato_a_stringa(enum stato_prenotazione stato) {
+    switch (stato) {
+        case ATTESA: return "In attesa";
+        case APPROVATA: return "Approvata";
+        case RIFIUTATA: return "Rifiutata";
+        default: return "Sconosciuto";
+    }
+}
+
 void gestisci_operazione_cliente(SocketInfo clientSock, op_cliente_t scelta, utente_t utente) {
     switch (scelta) {
         case OP_CLI_NUOVA_PRENOTAZ:
@@ -12,7 +22,7 @@ void gestisci_operazione_cliente(SocketInfo clientSock, op_cliente_t scelta, ute
             break;
 
         case OP_CLI_MIE_PRENOTAZ:
-            //gestisci_mie_prenotazioni(clientSock, utente);
+            gestisci_mie_prenotazioni(clientSock, utente);
             break;
 
         default:
@@ -88,4 +98,40 @@ void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente_t uten
             printf("\n[ESITO ERRORE] %s\n", header.messaggio);
         }
     }
+}
+
+void gestisci_mie_prenotazioni(SocketInfo clientSock, utente_t utente) {
+    richiesta_t req_mie_prenotazioni;
+    req_mie_prenotazioni.operazione = OP_CLI_MIE_PRENOTAZ;
+    req_mie_prenotazioni.utente = utente;
+
+    write(clientSock.socketfd, &req_mie_prenotazioni, sizeof(richiesta_t));
+
+    risposta_header_t header;
+    if (read(clientSock.socketfd, &header, sizeof(risposta_header_t)) <= 0 || header.esito == ESITO_KO) {
+        printf("[ERRORE] Impossibile recuperare le prenotazioni.\n");
+        return;
+    }
+
+    prenotazione_t *mie_prenotazioni = NULL;
+    if (header.payload_size > 0) {
+        mie_prenotazioni = malloc(header.payload_size);
+        if (read(clientSock.socketfd, mie_prenotazioni, header.payload_size) <= 0) {
+            printf("[ERRORE] Errore nel trasferimento delle prenotazioni.\n");
+            free(mie_prenotazioni);
+            return;
+        }
+    }
+
+    printf("\n=== LE MIE PRENOTAZIONI (%d) ===\n", header.num_elementi);
+    for (int i = 0; i < header.num_elementi; i++) {
+        printf("[%d] id_Aula: %d | Data: %s | Ora inizio: %s | Ora fine: %s | Stato: %s\n",
+               mie_prenotazioni[i].id_prenotazione,
+               mie_prenotazioni[i].id_risorsa, 
+               mie_prenotazioni[i].data,
+               mie_prenotazioni[i].ora_inizio,
+               mie_prenotazioni[i].ora_fine,
+               stato_a_stringa(mie_prenotazioni[i].stato));
+    }
+    free(mie_prenotazioni);
 }

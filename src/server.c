@@ -40,7 +40,6 @@ static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_
 }
 
 static bool init_ram(const char* filename_risorse, 
-                        const char* filename_prenotazioni, 
                         risorsa_aula_t** out_aule, 
                         size_t* out_num_risorse, 
                         mappa_t** out_mappa) {
@@ -62,8 +61,8 @@ static bool init_ram(const char* filename_risorse,
         return false;
     }
 
-    // 3. Popola la mappa in RAM con le prenotazioni preesistenti su disk
-    mappa_carica_da_file(*out_mappa, filename_prenotazioni);
+    // 3. Popola la mappa in RAM con le prenotazioni preesistenti su disco (un file per aula)
+    mappa_carica_da_file(*out_mappa);
 
     if (out_num_risorse != NULL) {
         *out_num_risorse = num_aule;
@@ -82,7 +81,7 @@ int main() {
   size_t num_aule = 0;
   mappa_t* mappa_prenotazioni = NULL;
   risorsa_aula_t* out_aule = NULL;
-  init_ram("dati/risorse.bn", "dati/prenotazioni.bn", &out_aule, &num_aule, &mappa_prenotazioni);
+  init_ram("dati/risorse.bn", &out_aule, &num_aule, &mappa_prenotazioni);
 
   while (1) { 
     printf("In attesa di connessioni...\n"); 
@@ -141,7 +140,7 @@ int main() {
 
           case OP_ADM_LISTA_ATTESA:
             printf("Richiesta elenco di tutte le prenotazioni da: %s\n", utente.username);
-            operazione_lista_tutte_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
+            operazione_lista_attesa_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
             break;
 
           case OP_CLI_CANCELLA_PRENOTAZ: 

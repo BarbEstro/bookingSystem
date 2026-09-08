@@ -49,5 +49,14 @@ prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa,
 // Distrugge l'intera mappa e libera tutta la memoria allocata (nodi + bucket)
 void libera_mappa(mappa_t* mappa);
 
+// Costruisce in 'buffer' il percorso del file dedicato alle prenotazioni di una specifica aula
+void mappa_path_file_aula(int id_risorsa, char* buffer, size_t size);
+
+// Appende su file la prenotazione, nel file dedicato alla sua aula
+bool mappa_salva_prenotazione_su_file(prenotazione_t p);
+
+// Carica in una mappa gia' allocata tutte le prenotazioni salvate su file per le sue aule
+bool mappa_carica_da_file(mappa_t* mappa);
+
 
 #endif // MAPPA_PRENOTAZIONI_H

@@ -8,5 +8,5 @@ bool predicato_per_username(const prenotazione_t* p, void* contesto) {
 
 bool predicato_per_stato(const prenotazione_t* p, void* contesto) {
     const char* stato = (const char*)contesto;
-    return strcmp(p->stato, stato) == 0;
+    return p->stato == stato;
 }
