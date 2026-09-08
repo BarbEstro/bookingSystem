@@ -7,6 +7,6 @@ bool predicato_per_username(const prenotazione_t* p, void* contesto) {
 }
 
 bool predicato_per_stato(const prenotazione_t* p, void* contesto) {
-    const char* stato = (const char*)contesto;
-    return p->stato == stato;
+    const enum stato_prenotazione* stato = (const enum stato_prenotazione*)contesto;
+    return p->stato == *stato;
 }

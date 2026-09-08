@@ -27,7 +27,6 @@ static const int NUM_LOGIN = sizeof(MENU_LOGIN) / sizeof(MENU_LOGIN[0]);
 static const VoceMenu MENU_CLIENTE[] = {
     {1, "Visualizza le mie prenotazioni", OP_CLI_MIE_PRENOTAZ},
     {2, "Effettua una nuova prenotazione", OP_CLI_NUOVA_PRENOTAZ},
-    {3, "Cancella una prenotazione", OP_CLI_CANCELLA_PRENOTAZ},
     {0, "Esci", OP_ESCI}
 };
 static const int NUM_CLIENTE = sizeof(MENU_CLIENTE) / sizeof(MENU_CLIENTE[0]);

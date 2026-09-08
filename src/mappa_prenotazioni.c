@@ -26,11 +26,23 @@ mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule) {
 
 bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) {
   if (mappa == NULL) return false;
+
+  size_t indice = 0;
+  bool trovato = false;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      indice = i;
+      trovato = true;
+      break;
+    }
+  }
+  if (!trovato) return false;  // Aula inesistente
+
   nodo_prenotazione_t* nuovo_nodo = malloc(sizeof(nodo_prenotazione_t));
   if (nuovo_nodo == NULL) return false;
   nuovo_nodo->dato = p;
-  nuovo_nodo->next = mappa->bucket[id_aula].testa;
-  mappa->bucket[id_aula].testa = nuovo_nodo;
+  nuovo_nodo->next = mappa->bucket[indice].testa;
+  mappa->bucket[indice].testa = nuovo_nodo;
 
   return true;  // Inserimento riuscito
 }
@@ -38,13 +50,25 @@ bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) 
 bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,
                                 int id_prenotazione) {
   if (mappa == NULL) return false;
-  nodo_prenotazione_t* current = mappa->bucket[id_aula].testa;
+
+  size_t indice = 0;
+  bool trovato = false;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      indice = i;
+      trovato = true;
+      break;
+    }
+  }
+  if (!trovato) return false;  // Aula inesistente
+
+  nodo_prenotazione_t* current = mappa->bucket[indice].testa;
   nodo_prenotazione_t* prev = NULL;
 
   while (current != NULL) {
     if (current->dato.id_prenotazione == id_prenotazione) {
       if (prev == NULL) {
-        mappa->bucket[id_aula].testa = current->next;
+        mappa->bucket[indice].testa = current->next;
       } else {
         prev->next = current->next;
       }
@@ -82,6 +106,15 @@ nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula) {
     }
   }
   return NULL;  // Aula non trovata
+}
+
+bool mappa_esiste_aula(mappa_t* mappa, int id_aula) {
+  if (mappa == NULL) return false;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) return true;
+  }
+  return false;
 }
 
 prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, prenotazione_predicato_t predicato, void* contesto, size_t* out_count) {

@@ -23,6 +23,9 @@ static int acquisisci_lock(int tipo_lock);
 static void rilascia_lock(int lock_fd);
 static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id);
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale);
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count);
+static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count);
+static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b);
 
 void operazione_login(int client_sock, richiesta_t richiesta) {
     risposta_header_t header;
@@ -153,6 +156,14 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
         return;
     }
 
+    if (!mappa_esiste_aula(mappa_prenotazioni, dati_prenotazione.id_risorsa)) {
+        rilascia_lock(lock_fd);
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Aula inesistente");
+        write(client_sock, &header, sizeof(header));
+        return;
+    }
+
     if (!verifica_disponibilita_aula(dati_prenotazione.id_risorsa, dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine)) {
         rilascia_lock(lock_fd);
         header.esito = ESITO_KO;
@@ -202,6 +213,75 @@ void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta
     rilascia_lock(lock_fd);
     libera_mappa(mappa_fresca);
     invia_elenco_prenotazioni(client_sock, OP_ADM_LISTA_ATTESA, risultati, count);
+}
+
+void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
+    (void)mappa_prenotazioni; // lo stato condiviso vive nei file per-aula, non nella RAM del processo
+
+    richiesta_gestione_prenotazione_t dati;
+    risposta_header_t header;
+    header.operazione = richiesta.operazione;
+    header.num_elementi = 0;
+    header.payload_size = 0;
+
+    if (read(client_sock, &dati, sizeof(richiesta_gestione_prenotazione_t)) <= 0) {
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Errore nella ricezione dei dati");
+        write(client_sock, &header, sizeof(header));
+        return;
+    }
+
+    // Sezione critica: nessun altro processo puo' leggere/scrivere le prenotazioni in questo momento
+    int lock_fd = acquisisci_lock(LOCK_EX);
+    if (lock_fd < 0) {
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Errore interno del server");
+        write(client_sock, &header, sizeof(header));
+        return;
+    }
+
+    size_t count = 0;
+    prenotazione_t* prenotazioni = carica_prenotazioni_aula(dati.id_risorsa, &count);
+
+    int indice_target = -1;
+    for (size_t i = 0; i < count; i++) {
+        if (prenotazioni[i].id_prenotazione == dati.id_prenotazione) {
+            indice_target = (int)i;
+            break;
+        }
+    }
+
+    if (indice_target < 0 || prenotazioni[indice_target].stato != ATTESA) {
+        rilascia_lock(lock_fd);
+        free(prenotazioni);
+        header.esito = ESITO_KO;
+        strcpy(header.messaggio, "Prenotazione non trovata o gia' gestita");
+        write(client_sock, &header, sizeof(header));
+        return;
+    }
+
+    if (richiesta.operazione == OP_ADM_APPROVA_PRENOTAZ) {
+        prenotazioni[indice_target].stato = APPROVATA;
+        // Chi era in attesa e si sovrapponeva alla prenotazione ora approvata non e' piu' realizzabile
+        for (size_t i = 0; i < count; i++) {
+            if ((int)i == indice_target) continue;
+            if (prenotazioni[i].stato == ATTESA && si_sovrappongono(&prenotazioni[i], &prenotazioni[indice_target])) {
+                prenotazioni[i].stato = RIFIUTATA;
+            }
+        }
+        strcpy(header.messaggio, "Prenotazione approvata");
+    } else {
+        prenotazioni[indice_target].stato = RIFIUTATA;
+        strcpy(header.messaggio, "Prenotazione rifiutata");
+    }
+
+    bool salvato = salva_prenotazioni_aula(dati.id_risorsa, prenotazioni, count);
+    rilascia_lock(lock_fd);
+    free(prenotazioni);
+
+    header.esito = salvato ? ESITO_OK : ESITO_KO;
+    if (!salvato) strcpy(header.messaggio, "Errore nel salvataggio della prenotazione");
+    write(client_sock, &header, sizeof(header));
 }
 
 // Invia al client l'array 'risultati' (gia' filtrato) come risposta a 'operazione'
@@ -293,7 +373,7 @@ static bool verifica_disponibilita_aula(int id_aula, const char* data, const cha
     prenotazione_t p;
     while (disponibile && fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
         // Le prenotazioni rifiutate non occupano piu' la fascia oraria
-        if (p.stato != RIFIUTATA && strcmp(p.data, data) == 0) {
+        if (p.stato != RIFIUTATA && p.stato != ATTESA && strcmp(p.data, data) == 0) {
             // Controllo sovrapposizione oraria
             if (!(strcmp(ora_fine, p.ora_inizio) <= 0 || strcmp(ora_inizio, p.ora_fine) >= 0)) {
                 disponibile = false;
@@ -358,4 +438,48 @@ static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale) {
     free(aule_tmp);
     if (mappa_fresca != NULL) mappa_carica_da_file(mappa_fresca);
     return mappa_fresca;
+}
+
+// Carica in un array dinamico tutte le prenotazioni salvate per una specifica aula
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count) {
+    *out_count = 0;
+    char path[64];
+    mappa_path_file_aula(id_risorsa, path, sizeof(path));
+
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    size_t count = file_size / sizeof(prenotazione_t);
+    prenotazione_t* prenotazioni = NULL;
+    if (count > 0) {
+        prenotazioni = malloc(count * sizeof(prenotazione_t));
+        if (prenotazioni != NULL) fread(prenotazioni, sizeof(prenotazione_t), count, file);
+    }
+    fclose(file);
+
+    *out_count = (prenotazioni != NULL) ? count : 0;
+    return prenotazioni;
+}
+
+// Riscrive per intero il file dell'aula con l'array aggiornato (usata da approvazione/rifiuto)
+static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count) {
+    char path[64];
+    mappa_path_file_aula(id_risorsa, path, sizeof(path));
+
+    FILE* file = fopen(path, "wb");
+    if (file == NULL) return false;
+
+    bool esito = (count == 0) || (fwrite(prenotazioni, sizeof(prenotazione_t), count, file) == count);
+    fclose(file);
+    return esito;
+}
+
+// Due prenotazioni sono in conflitto se riguardano la stessa data e le fasce orarie si sovrappongono
+static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b) {
+    if (strcmp(a->data, b->data) != 0) return false;
+    return !(strcmp(a->ora_fine, b->ora_inizio) <= 0 || strcmp(a->ora_inizio, b->ora_fine) >= 0);
 }

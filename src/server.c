@@ -143,9 +143,10 @@ int main() {
             operazione_lista_attesa_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
             break;
 
-          case OP_CLI_CANCELLA_PRENOTAZ: 
-            printf("cancellazione..\n"); 
-            // TODO
+          case OP_ADM_APPROVA_PRENOTAZ:
+          case OP_ADM_RIFIUTA_PRENOTAZ:
+            printf("Gestione approvazione/rifiuto prenotazione da: %s\n", utente.username);
+            operazione_gestisci_prenotazione(currentSocketfd, richiesta, mappa_prenotazioni);
             break;
 
           case OP_ESCI: { 

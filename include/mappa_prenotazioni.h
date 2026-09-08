@@ -35,6 +35,9 @@ bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula, prenotazione_t p)
 // Ritorna il puntatore alla testa della lista di prenotazioni per una determinata aula
 nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula);
 
+// Ritorna true se 'id_aula' corrisponde a un'aula effettivamente presente nella mappa
+bool mappa_esiste_aula(mappa_t* mappa, int id_aula);
+
 // Rimuove una specifica prenotazione tramite il suo id_prenotazione
 bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula, int id_prenotazione);
 

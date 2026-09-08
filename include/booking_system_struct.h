@@ -25,7 +25,6 @@ typedef enum {
     OP_CLI_LISTA_RISORSE,
     OP_CLI_NUOVA_PRENOTAZ,
     OP_CLI_MIE_PRENOTAZ,
-    OP_CLI_CANCELLA_PRENOTAZ,
 
     OP_ADM_LISTA_ATTESA,
     OP_ADM_APPROVA_PRENOTAZ,
@@ -86,6 +85,11 @@ typedef struct {
     char ora_inizio[6]; // Formato: HH:MM
     char ora_fine[6];   // Formato: HH:MM
 } richiesta_prenotazione_t;
+
+typedef struct {
+    int id_prenotazione;
+    int id_risorsa; // permette al server di individuare subito il file dell'aula
+} richiesta_gestione_prenotazione_t;
 
 //==========================================
 // 4. MESSAGGIO DI RISPOSTA Server -> Client

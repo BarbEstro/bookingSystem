@@ -12,6 +12,7 @@ void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta, riso
 void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
 void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
 void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
+void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
 
 // Carica risorse da file: restituisce un array terminato con id_risorsa == -1
 //risorsa_aula_t* carica_risorse_da_file(const char* filename);

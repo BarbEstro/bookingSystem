@@ -74,6 +74,7 @@ int main() {
       printf("Accesso come amministratore.\n");
       interfaccia_utente_admin();
       scelta_utente = operazioni_admin();
+      gestisci_operazione_admin(clientSock, scelta_utente, utente_esecuzione);
 
     } while (scelta_utente != OP_ESCI);
   } else {
