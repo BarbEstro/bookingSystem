@@ -47,8 +47,7 @@ bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) 
   return true;  // Inserimento riuscito
 }
 
-bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,
-                                int id_prenotazione) {
+bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,int id_prenotazione) {
   if (mappa == NULL) return false;
 
   size_t indice = 0;
