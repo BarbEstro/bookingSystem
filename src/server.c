@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
@@ -61,9 +62,6 @@ static bool init_ram(const char* filename_risorse,
         return false;
     }
 
-    // 3. Popola la mappa in RAM con le prenotazioni preesistenti su disco (un file per aula)
-    mappa_carica_da_file(*out_mappa);
-
     if (out_num_risorse != NULL) {
         *out_num_risorse = num_aule;
     }
@@ -81,8 +79,12 @@ int main() {
   size_t num_aule = 0;
   mappa_t* mappa_prenotazioni = NULL;
   risorsa_aula_t* out_aule = NULL;
-  init_ram("dati/risorse.bn", &out_aule, &num_aule, &mappa_prenotazioni);
+  if(init_ram("dati/risorse.bn", &out_aule, &num_aule, &mappa_prenotazioni) == false) {
+      fprintf(stderr, "Errore nell'inizializzazione della RAM.\n");
+      exit(EXIT_FAILURE);
+  }
 
+  signal(SIGCHLD, SIG_IGN);
   while (1) { 
     printf("In attesa di connessioni...\n"); 
     socklen_t clientAddressLength = sizeof(clientAddress); 
@@ -98,8 +100,8 @@ int main() {
       exit(EXIT_FAILURE); 
     }
     if (pid == 0) {
-      // Processo figlio[cite: 9]
-      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio[cite: 9]
+      // Processo figlio
+      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio
       printf("Nuova connessione accettata, creando processo figlio...\n"); 
 
       while (1) {
@@ -166,9 +168,9 @@ int main() {
         }
       }
     } else {
-      // Processo padre[cite: 9]
+      // Processo padre
       printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre[cite: 9]
+      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
     }
   }
 }

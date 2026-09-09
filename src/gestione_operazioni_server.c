@@ -19,8 +19,6 @@ static void ottieni_data_odierna(char *buffer, size_t size);
 static void ottieni_ora_odierna(char *buffer, size_t size);
 static bool valida_data_e_ora(const char *data_req, const char *ora_inizio, const char *ora_fine, char *msg_errore);
 static bool verifica_disponibilita_aula(int id_aula, const char* data, const char* ora_inizio, const char* ora_fine);
-static int acquisisci_lock(int tipo_lock);
-static void rilascia_lock(int lock_fd);
 static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id);
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale);
 static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count);
@@ -31,12 +29,12 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
     risposta_header_t header;
     header.operazione = OP_CLI_LOGIN;
 
-    printf("Richiesta di login ricevuta: username=%s, password=%s\n", richiesta.utente.username, richiesta.utente.password); //[cite: 6]
-    utente_t* utente = verificaCredenziali(richiesta.utente.username, richiesta.utente.password); //[cite: 6]
+    printf("Richiesta di login ricevuta: username=%s, password=%s\n", richiesta.utente.username, richiesta.utente.password); //
+    utente_t* utente = verificaCredenziali(richiesta.utente.username, richiesta.utente.password); //
     
     if(utente != NULL) {
-        header.esito = ESITO_OK; //[cite: 6]
-        strcpy(header.messaggio, "Login effettuato con successo"); //[cite: 6]
+        header.esito = ESITO_OK; //
+        strcpy(header.messaggio, "Login effettuato con successo"); //
         header.num_elementi = 1;
         header.payload_size = sizeof(utente_t); 
 
@@ -44,10 +42,10 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
         write(client_sock, &header, sizeof(header));
         write(client_sock, utente, header.payload_size);
         
-        free(utente); // Libera la memoria allocata per l'utente[cite: 6]
+        free(utente); // Libera la memoria allocata per l'utente
     } else {
-        header.esito = ESITO_KO; //[cite: 6]
-        strcpy(header.messaggio, "USERNAME o PASSWORD errati"); //[cite: 6]
+        header.esito = ESITO_KO; //
+        strcpy(header.messaggio, "USERNAME o PASSWORD errati"); //
         header.num_elementi = 0;
         header.payload_size = 0; // Nessun payload
         
@@ -62,25 +60,25 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
     header.num_elementi = 0;
     header.payload_size = 0; // La registrazione non invia mai payload!
 
-    printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //[cite: 6]
-    utente_t* nuovo_utente = crea_utente(richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //[cite: 6]
+    printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
+    utente_t* nuovo_utente = crea_utente(richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
     
-    LOG("Fase di controllo utente"); //[cite: 6]
-    if (nuovo_utente != NULL){ //[cite: 6]
-        if (registraUtente(nuovo_utente)) { //[cite: 6]
-            LOG("Non esiste"); //[cite: 6]
-            header.esito = ESITO_OK; //[cite: 6]
-            strcpy(header.messaggio, "Registrazione effettuata"); //[cite: 6]
+    LOG("Fase di controllo utente"); //
+    if (nuovo_utente != NULL){ //
+        if (registraUtente(nuovo_utente)) { //
+            LOG("Non esiste"); //
+            header.esito = ESITO_OK; //
+            strcpy(header.messaggio, "Registrazione effettuata"); //
         } else {
-            LOG("esiste username"); //[cite: 6]
-            header.esito = ESITO_KO; //[cite: 6]
-            strcpy(header.messaggio, "Registrazione negata, username esistente"); //[cite: 6]
+            LOG("esiste username"); //
+            header.esito = ESITO_KO; //
+            strcpy(header.messaggio, "Registrazione negata, username esistente"); //
         }
-        free(nuovo_utente); // Libera la memoria allocata per il nuovo utente[cite: 6]
+        free(nuovo_utente); // Libera la memoria allocata per il nuovo utente
     } else {
-        header.esito = ESITO_KO; //[cite: 6]
+        header.esito = ESITO_KO; //
         strcpy(header.messaggio, "Errore interno server");
-        printf("Errore nella creazione dell'utente.\n"); //[cite: 6]
+        printf("Errore nella creazione dell'utente.\n"); //
     }
     
     // Manda l'esito
@@ -136,7 +134,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     }
 
     // 3. Sezione critica: un solo processo alla volta puo' leggere/scrivere le prenotazioni
-    int lock_fd = acquisisci_lock(LOCK_EX);
+    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
     if (lock_fd < 0) {
         header.esito = ESITO_KO;
         strcpy(header.messaggio, "Errore interno del server");
@@ -182,7 +180,6 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     nuova_p.utente = richiesta.utente;
 
     mappa_salva_prenotazione_su_file(nuova_p);
-    mappa_inserisci_prenotazione(mappa_prenotazioni, nuova_p.id_risorsa, nuova_p);
 
     rilascia_lock(lock_fd);
 
@@ -382,23 +379,6 @@ static bool verifica_disponibilita_aula(int id_aula, const char* data, const cha
     }
     fclose(file);
     return disponibile;
-}
-
-// Apre (creandolo se necessario) il file di lock e acquisisce il lock indicato (LOCK_EX o LOCK_SH)
-static int acquisisci_lock(int tipo_lock) {
-    int fd = open(FILE_LOCK_PRENOTAZIONI, O_CREAT | O_RDWR, 0666);
-    if (fd < 0) return -1;
-    if (flock(fd, tipo_lock) < 0) {
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-static void rilascia_lock(int lock_fd) {
-    if (lock_fd < 0) return;
-    flock(lock_fd, LOCK_UN);
-    close(lock_fd);
 }
 
 // Scansiona i file di tutte le aule per contare le prenotazioni attive di 'username'
