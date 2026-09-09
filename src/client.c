@@ -92,14 +92,15 @@ int main() {
 // Le due funzioni sottostanti rimangono invariate
 // =======================================================
 
-// TODO il nome dev'essere tutto minuscolo
-// TODO aggiustare gli scanf con %valore
+
+
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
   richiesta_t richiesta;
   richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
     scanf("%10s", richiesta.utente.username);  // Aggiunto limite per sicurezza
+    str_tolower(richiesta.utente.username);
     printf("Inserisci la tua password [Max 20 caratteri]: ");
     scanf("%20s", richiesta.utente.password);  // Aggiunto limite per sicurezza
   }
