@@ -44,6 +44,7 @@ include/
   booking_system_struct.h
   comunicazioneSocket.h
   debug.h
+  gestione_lock.h
   gestione_login.h
   gestione_operazioni_client.h
   gestione_operazioni_server.h
@@ -53,6 +54,7 @@ include/
 src/
   client.c
   comunicazioneSocket.c
+  gestione_lock.c
   gestione_login.c
   gestione_operazioni_client.c
   gestione_operazioni_server.c
@@ -102,6 +104,16 @@ SocketInfo inizializzaSocketClient();
 #endif
 
 #endif // DEBUG_H
+</file>
+
+<file path="include/gestione_lock.h">
+#ifndef GESTIONE_LOCK_H
+#define GESTIONE_LOCK_H
+
+int acquisisci_lock(int tipo_lock, const char* file_lock);
+void rilascia_lock(int lock_fd);
+
+#endif
 </file>
 
 <file path="include/interfaccia_ui.h">
@@ -201,6 +213,29 @@ SocketInfo inizializzaSocketClient(){
     printf("Connessione al server avvenuta con successo!\n");
 
     return socketInfo;
+}
+</file>
+
+<file path="src/gestione_lock.c">
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#include "gestione_lock.h"
+
+int acquisisci_lock(int tipo_lock, const char* file_lock) {
+    int fd = open(file_lock, O_CREAT | O_RDWR, 0666);
+    if (fd < 0) return -1;
+    if (flock(fd, tipo_lock) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+void rilascia_lock(int lock_fd) {
+    if (lock_fd < 0) return;
+    flock(lock_fd, LOCK_UN);
+    close(lock_fd);
 }
 </file>
 
@@ -599,191 +634,6 @@ static void gestisci_gestione_prenotazioni(SocketInfo clientSock, utente_t utent
 }
 </file>
 
-<file path="src/mappa_prenotazioni.c">
-#include "mappa_prenotazioni.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-
-mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule) {
-  if (aule == NULL || num_aule == 0) return NULL;
-
-  mappa_t* mappa = malloc(sizeof(mappa_t));
-  if (mappa == NULL) return NULL;
-
-  mappa->num_aule = num_aule;
-  mappa->bucket = malloc(num_aule * sizeof(bucket_aula_t));
-  if (mappa->bucket == NULL) {
-    free(mappa);
-    return NULL;
-  }
-
-  for (size_t i = 0; i < num_aule; i++) {
-    mappa->bucket[i].id_risorsa = aule[i].id_risorsa;
-    mappa->bucket[i].testa = NULL;
-  }
-
-  return mappa;
-}
-
-bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) {
-  if (mappa == NULL) return false;
-
-  size_t indice = 0;
-  bool trovato = false;
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    if (mappa->bucket[i].id_risorsa == id_aula) {
-      indice = i;
-      trovato = true;
-      break;
-    }
-  }
-  if (!trovato) return false;  // Aula inesistente
-
-  nodo_prenotazione_t* nuovo_nodo = malloc(sizeof(nodo_prenotazione_t));
-  if (nuovo_nodo == NULL) return false;
-  nuovo_nodo->dato = p;
-  nuovo_nodo->next = mappa->bucket[indice].testa;
-  mappa->bucket[indice].testa = nuovo_nodo;
-
-  return true;  // Inserimento riuscito
-}
-
-bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,
-                                int id_prenotazione) {
-  if (mappa == NULL) return false;
-
-  size_t indice = 0;
-  bool trovato = false;
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    if (mappa->bucket[i].id_risorsa == id_aula) {
-      indice = i;
-      trovato = true;
-      break;
-    }
-  }
-  if (!trovato) return false;  // Aula inesistente
-
-  nodo_prenotazione_t* current = mappa->bucket[indice].testa;
-  nodo_prenotazione_t* prev = NULL;
-
-  while (current != NULL) {
-    if (current->dato.id_prenotazione == id_prenotazione) {
-      if (prev == NULL) {
-        mappa->bucket[indice].testa = current->next;
-      } else {
-        prev->next = current->next;
-      }
-      free(current);
-      return true;
-    }
-    prev = current;
-    current = current->next;
-  }
-  return false;
-}
-
-void libera_mappa(mappa_t* mappa) {
-  if (mappa == NULL) return;
-
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    nodo_prenotazione_t* current = mappa->bucket[i].testa;
-    while (current != NULL) {
-      nodo_prenotazione_t* temp = current;
-      current = current->next;
-      free(temp);
-    }
-  }
-
-  free(mappa->bucket);
-  free(mappa);
-}
-
-nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula) {
-  if (mappa == NULL) return NULL;
-
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    if (mappa->bucket[i].id_risorsa == id_aula) {
-      return mappa->bucket[i].testa;
-    }
-  }
-  return NULL;  // Aula non trovata
-}
-
-bool mappa_esiste_aula(mappa_t* mappa, int id_aula) {
-  if (mappa == NULL) return false;
-
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    if (mappa->bucket[i].id_risorsa == id_aula) return true;
-  }
-  return false;
-}
-
-prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, prenotazione_predicato_t predicato, void* contesto, size_t* out_count) {
-  if (out_count != NULL) *out_count = 0;
-  if (mappa == NULL || predicato == NULL) return NULL;
-
-  // 1. Primo passaggio: conta quante prenotazioni soddisfano il predicato
-  size_t trovate = 0;
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
-      if (predicato(&n->dato, contesto)) trovate++;
-    }
-  }
-  if (trovate == 0) return NULL;
-
-  // 2. Secondo passaggio: alloca e copia i risultati
-  prenotazione_t* risultati = malloc(trovate * sizeof(prenotazione_t));
-  if (risultati == NULL) return NULL;
-
-  size_t idx = 0;
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
-      if (predicato(&n->dato, contesto)) risultati[idx++] = n->dato;
-    }
-  }
-
-  if (out_count != NULL) *out_count = trovate;
-  return risultati;
-}
-
-void mappa_path_file_aula(int id_risorsa, char* buffer, size_t size) {
-  snprintf(buffer, size, "dati/prenotazioni_aula_%d.bn", id_risorsa);
-}
-
-bool mappa_salva_prenotazione_su_file(prenotazione_t p) {
-  char path[64];
-  mappa_path_file_aula(p.id_risorsa, path, sizeof(path));
-
-  FILE* file = fopen(path, "ab");
-  if (file == NULL) return false;
-
-  bool esito = fwrite(&p, sizeof(prenotazione_t), 1, file) == 1;
-  fclose(file);
-  return esito;
-}
-
-bool mappa_carica_da_file(mappa_t* mappa) {
-  if (mappa == NULL) return false;
-
-  char path[64];
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    int id_risorsa = mappa->bucket[i].id_risorsa;
-    mappa_path_file_aula(id_risorsa, path, sizeof(path));
-
-    FILE* file = fopen(path, "rb");
-    if (file == NULL) continue;  // Nessuna prenotazione salvata per questa aula
-
-    prenotazione_t p;
-    while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
-      mappa_inserisci_prenotazione(mappa, id_risorsa, p);
-    }
-    fclose(file);
-  }
-  return true;
-}
-</file>
-
 <file path="include/mappa_prenotazioni.h">
 #ifndef MAPPA_PRENOTAZIONI_H
 #define MAPPA_PRENOTAZIONI_H
@@ -959,6 +809,190 @@ op_cliente_t operazioni_admin() {
 }
 </file>
 
+<file path="src/mappa_prenotazioni.c">
+#include "mappa_prenotazioni.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule) {
+  if (aule == NULL || num_aule == 0) return NULL;
+
+  mappa_t* mappa = malloc(sizeof(mappa_t));
+  if (mappa == NULL) return NULL;
+
+  mappa->num_aule = num_aule;
+  mappa->bucket = malloc(num_aule * sizeof(bucket_aula_t));
+  if (mappa->bucket == NULL) {
+    free(mappa);
+    return NULL;
+  }
+
+  for (size_t i = 0; i < num_aule; i++) {
+    mappa->bucket[i].id_risorsa = aule[i].id_risorsa;
+    mappa->bucket[i].testa = NULL;
+  }
+
+  return mappa;
+}
+
+bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) {
+  if (mappa == NULL) return false;
+
+  size_t indice = 0;
+  bool trovato = false;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      indice = i;
+      trovato = true;
+      break;
+    }
+  }
+  if (!trovato) return false;  // Aula inesistente
+
+  nodo_prenotazione_t* nuovo_nodo = malloc(sizeof(nodo_prenotazione_t));
+  if (nuovo_nodo == NULL) return false;
+  nuovo_nodo->dato = p;
+  nuovo_nodo->next = mappa->bucket[indice].testa;
+  mappa->bucket[indice].testa = nuovo_nodo;
+
+  return true;  // Inserimento riuscito
+}
+
+bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,int id_prenotazione) {
+  if (mappa == NULL) return false;
+
+  size_t indice = 0;
+  bool trovato = false;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      indice = i;
+      trovato = true;
+      break;
+    }
+  }
+  if (!trovato) return false;  // Aula inesistente
+
+  nodo_prenotazione_t* current = mappa->bucket[indice].testa;
+  nodo_prenotazione_t* prev = NULL;
+
+  while (current != NULL) {
+    if (current->dato.id_prenotazione == id_prenotazione) {
+      if (prev == NULL) {
+        mappa->bucket[indice].testa = current->next;
+      } else {
+        prev->next = current->next;
+      }
+      free(current);
+      return true;
+    }
+    prev = current;
+    current = current->next;
+  }
+  return false;
+}
+
+void libera_mappa(mappa_t* mappa) {
+  if (mappa == NULL) return;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    nodo_prenotazione_t* current = mappa->bucket[i].testa;
+    while (current != NULL) {
+      nodo_prenotazione_t* temp = current;
+      current = current->next;
+      free(temp);
+    }
+  }
+
+  free(mappa->bucket);
+  free(mappa);
+}
+
+nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula) {
+  if (mappa == NULL) return NULL;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) {
+      return mappa->bucket[i].testa;
+    }
+  }
+  return NULL;  // Aula non trovata
+}
+
+bool mappa_esiste_aula(mappa_t* mappa, int id_aula) {
+  if (mappa == NULL) return false;
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    if (mappa->bucket[i].id_risorsa == id_aula) return true;
+  }
+  return false;
+}
+
+prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, prenotazione_predicato_t predicato, void* contesto, size_t* out_count) {
+  if (out_count != NULL) *out_count = 0;
+  if (mappa == NULL || predicato == NULL) return NULL;
+
+  // 1. Primo passaggio: conta quante prenotazioni soddisfano il predicato
+  size_t trovate = 0;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
+      if (predicato(&n->dato, contesto)) trovate++;
+    }
+  }
+  if (trovate == 0) return NULL;
+
+  // 2. Secondo passaggio: alloca e copia i risultati
+  prenotazione_t* risultati = malloc(trovate * sizeof(prenotazione_t));
+  if (risultati == NULL) return NULL;
+
+  size_t idx = 0;
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    for (nodo_prenotazione_t* n = mappa->bucket[i].testa; n != NULL; n = n->next) {
+      if (predicato(&n->dato, contesto)) risultati[idx++] = n->dato;
+    }
+  }
+
+  if (out_count != NULL) *out_count = trovate;
+  return risultati;
+}
+
+void mappa_path_file_aula(int id_risorsa, char* buffer, size_t size) {
+  snprintf(buffer, size, "dati/prenotazioni_aula_%d.bn", id_risorsa);
+}
+
+bool mappa_salva_prenotazione_su_file(prenotazione_t p) {
+  char path[64];
+  mappa_path_file_aula(p.id_risorsa, path, sizeof(path));
+
+  FILE* file = fopen(path, "ab");
+  if (file == NULL) return false;
+
+  bool esito = fwrite(&p, sizeof(prenotazione_t), 1, file) == 1;
+  fclose(file);
+  return esito;
+}
+
+bool mappa_carica_da_file(mappa_t* mappa) {
+  if (mappa == NULL) return false;
+
+  char path[64];
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    int id_risorsa = mappa->bucket[i].id_risorsa;
+    mappa_path_file_aula(id_risorsa, path, sizeof(path));
+
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) continue;  // Nessuna prenotazione salvata per questa aula
+
+    prenotazione_t p;
+    while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
+      mappa_inserisci_prenotazione(mappa, id_risorsa, p);
+    }
+    fclose(file);
+  }
+  return true;
+}
+</file>
+
 <file path="include/gestione_operazioni_server.h">
 #ifndef GESTIONE_OPERAZIONI_SERVER_H
 #define GESTIONE_OPERAZIONI_SERVER_H
@@ -980,115 +1014,6 @@ void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, ma
 //risorsa_aula_t* carica_risorse_da_file(const char* filename);
 
 #endif // GESTIONE_OPERAZIONI_SERVER_H
-</file>
-
-<file path="src/gestione_login.c">
-#include "gestione_login.h"
-#include <stdbool.h>
-#include <string.h>
-#include "booking_system_struct.h"
-#include <unistd.h>
-#include <stdlib.h>
-#include "debug.h"
-
-static bool controllo_username(const char* username);
-static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
-static char* crea_path_file_username(char* path, int size);
-
-utente_t* crea_utente(const char *username, const char *password, bool isAdmin) {
-    utente_t* nuovo_utente = malloc(sizeof(utente_t));
-    if (nuovo_utente == NULL) {
-        return NULL; // Errore di allocazione
-    }
-    strncpy(nuovo_utente->username, username, MAX_USER_LEN);
-    strncpy(nuovo_utente->password, password, MAX_PASS_LEN);
-    nuovo_utente->isAdmin = isAdmin;
-
-    return nuovo_utente;
-}
-
-utente_t* verificaCredenziali(const char *username, const char *password) {
-    char primo_carattere = username[0];
-    char path[32];
-
-    if (verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
-        FILE* file = fopen(path, "rb");
-        if (file != NULL) {
-            utente_t* utente = malloc(sizeof(utente_t));
-            if (utente == NULL) {
-                fclose(file);
-                return NULL;
-            }
-
-            // Il ciclo legge un utente alla volta e si arresta da solo a fine file (EOF)
-            while (fread(utente, sizeof(utente_t), 1, file) == 1) {
-                if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
-                    fclose(file);
-                    return utente; // Credenziali corrette (memoria restituita al chiamante)
-                }
-            }
-
-            // Se non trova corrispondenze, libera la memoria ed evita memory leak
-            free(utente);
-            fclose(file);
-        }
-    }
-    
-    return NULL; // Utente non trovato o password errata
-}
-
-bool registraUtente(utente_t* utente) {
-    bool esito = false;
-    char path[32];
-    LOG("Controllo se esiste un username simile");
-    if(!controllo_username(utente->username)) {
-        if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
-            crea_path_file_username(path, sizeof(path));
-        }
-        FILE* file = fopen(path, "ab");
-        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-        esito = true;
-        fclose(file);
-    }
-
-    return esito;
-}
-
-static bool controllo_username(const char* username){
-    bool esito = false;
-    char primo_carattere = username[0];
-    char path[32];
-
-    if(verifica_esistenza_file_username(primo_carattere, path, sizeof(path))){
-        FILE* file = fopen(path, "rb");
-        utente_t* utente = malloc(sizeof(utente_t));
-        while(fread(utente, sizeof(utente_t), 1, file) == 1){
-            if(strcmp(utente->username, username) == 0){
-                esito = true;
-                LOG("USERNAME TROVATO");
-                break;
-            }
-        }
-        free(utente);
-        fclose(file);
-    }
-
-    return esito;
-    
-}
-
-static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
-    LOG("verifica esistenza file");
-    snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
-    LOG("File da controllare : %s", path);
-    return access(path, F_OK) == 0; // Verifica se il file esiste
-}
-
-static char* crea_path_file_username(char* path, int size){
-    FILE* file = fopen(path, "wb"); // Crea il file se non esiste
-    fclose(file);
-    return path;
-}
 </file>
 
 <file path="src/init.c">
@@ -1147,6 +1072,124 @@ int main() {
   inizializzazione_cartella();
   creazione_file_utenza();
   inizializza_risorse_disponibilita();
+}
+</file>
+
+<file path="src/gestione_login.c">
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/file.h>
+
+#include "gestione_login.h"
+#include "booking_system_struct.h"
+#include "gestione_lock.h"
+#include "debug.h"
+
+#define FILE_LOCK_UTENTI "dati/utenti.lock"
+
+static bool controllo_username(const char* username);
+static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
+static char* crea_path_file_username(char* path, int size);
+
+utente_t* crea_utente(const char *username, const char *password, bool isAdmin) {
+    utente_t* nuovo_utente = malloc(sizeof(utente_t));
+    if (nuovo_utente == NULL) {
+        return NULL; // Errore di allocazione
+    }
+    strncpy(nuovo_utente->username, username, MAX_USER_LEN);
+    strncpy(nuovo_utente->password, password, MAX_PASS_LEN);
+    nuovo_utente->isAdmin = isAdmin;
+
+    return nuovo_utente;
+}
+
+utente_t* verificaCredenziali(const char *username, const char *password) {
+    char primo_carattere = username[0];
+    char path[32];
+    utente_t* risultato = NULL;
+
+    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_UTENTI);
+    if (lock_fd < 0) return NULL;
+
+    if (verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
+        FILE* file = fopen(path, "rb");
+        if (file != NULL) {
+            utente_t* utente = malloc(sizeof(utente_t));
+            if (utente != NULL) {
+                while (fread(utente, sizeof(utente_t), 1, file) == 1) {
+                    if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
+                        risultato = utente;
+                        break;
+                    }
+                }
+                if (risultato == NULL) free(utente);
+            }
+            fclose(file);
+        }
+    }
+
+    rilascia_lock(lock_fd);
+    return risultato;
+}
+
+bool registraUtente(utente_t* utente) {
+    bool esito = false;
+    char path[32];
+
+    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_UTENTI);
+    if (lock_fd < 0) return false;
+
+    LOG("Controllo se esiste un username simile");
+    if(!controllo_username(utente->username)) {
+        if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
+            crea_path_file_username(path, sizeof(path));
+        }
+        FILE* file = fopen(path, "ab");
+        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
+        esito = true;
+        fclose(file);
+    }
+
+    rilascia_lock(lock_fd);
+    return esito;
+}
+
+static bool controllo_username(const char* username){
+    bool esito = false;
+    char primo_carattere = username[0];
+    char path[32];
+
+    if(verifica_esistenza_file_username(primo_carattere, path, sizeof(path))){
+        FILE* file = fopen(path, "rb");
+        utente_t* utente = malloc(sizeof(utente_t));
+        while(fread(utente, sizeof(utente_t), 1, file) == 1){
+            if(strcmp(utente->username, username) == 0){
+                esito = true;
+                LOG("USERNAME TROVATO");
+                break;
+            }
+        }
+        free(utente);
+        fclose(file);
+    }
+
+    return esito;
+    
+}
+
+static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
+    LOG("verifica esistenza file");
+    snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
+    LOG("File da controllare : %s", path);
+    return access(path, F_OK) == 0; // Verifica se il file esiste
+}
+
+static char* crea_path_file_username(char* path, int size){
+    FILE* file = fopen(path, "wb"); // Crea il file se non esiste
+    fclose(file);
+    return path;
 }
 </file>
 
@@ -1357,8 +1400,6 @@ static void ottieni_data_odierna(char *buffer, size_t size);
 static void ottieni_ora_odierna(char *buffer, size_t size);
 static bool valida_data_e_ora(const char *data_req, const char *ora_inizio, const char *ora_fine, char *msg_errore);
 static bool verifica_disponibilita_aula(int id_aula, const char* data, const char* ora_inizio, const char* ora_fine);
-static int acquisisci_lock(int tipo_lock);
-static void rilascia_lock(int lock_fd);
 static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id);
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale);
 static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count);
@@ -1369,12 +1410,12 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
     risposta_header_t header;
     header.operazione = OP_CLI_LOGIN;
 
-    printf("Richiesta di login ricevuta: username=%s, password=%s\n", richiesta.utente.username, richiesta.utente.password); //[cite: 6]
-    utente_t* utente = verificaCredenziali(richiesta.utente.username, richiesta.utente.password); //[cite: 6]
+    printf("Richiesta di login ricevuta: username=%s, password=%s\n", richiesta.utente.username, richiesta.utente.password); //
+    utente_t* utente = verificaCredenziali(richiesta.utente.username, richiesta.utente.password); //
     
     if(utente != NULL) {
-        header.esito = ESITO_OK; //[cite: 6]
-        strcpy(header.messaggio, "Login effettuato con successo"); //[cite: 6]
+        header.esito = ESITO_OK; //
+        strcpy(header.messaggio, "Login effettuato con successo"); //
         header.num_elementi = 1;
         header.payload_size = sizeof(utente_t); 
 
@@ -1382,10 +1423,10 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
         write(client_sock, &header, sizeof(header));
         write(client_sock, utente, header.payload_size);
         
-        free(utente); // Libera la memoria allocata per l'utente[cite: 6]
+        free(utente); // Libera la memoria allocata per l'utente
     } else {
-        header.esito = ESITO_KO; //[cite: 6]
-        strcpy(header.messaggio, "USERNAME o PASSWORD errati"); //[cite: 6]
+        header.esito = ESITO_KO; //
+        strcpy(header.messaggio, "USERNAME o PASSWORD errati"); //
         header.num_elementi = 0;
         header.payload_size = 0; // Nessun payload
         
@@ -1400,25 +1441,25 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
     header.num_elementi = 0;
     header.payload_size = 0; // La registrazione non invia mai payload!
 
-    printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //[cite: 6]
-    utente_t* nuovo_utente = crea_utente(richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //[cite: 6]
+    printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
+    utente_t* nuovo_utente = crea_utente(richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
     
-    LOG("Fase di controllo utente"); //[cite: 6]
-    if (nuovo_utente != NULL){ //[cite: 6]
-        if (registraUtente(nuovo_utente)) { //[cite: 6]
-            LOG("Non esiste"); //[cite: 6]
-            header.esito = ESITO_OK; //[cite: 6]
-            strcpy(header.messaggio, "Registrazione effettuata"); //[cite: 6]
+    LOG("Fase di controllo utente"); //
+    if (nuovo_utente != NULL){ //
+        if (registraUtente(nuovo_utente)) { //
+            LOG("Non esiste"); //
+            header.esito = ESITO_OK; //
+            strcpy(header.messaggio, "Registrazione effettuata"); //
         } else {
-            LOG("esiste username"); //[cite: 6]
-            header.esito = ESITO_KO; //[cite: 6]
-            strcpy(header.messaggio, "Registrazione negata, username esistente"); //[cite: 6]
+            LOG("esiste username"); //
+            header.esito = ESITO_KO; //
+            strcpy(header.messaggio, "Registrazione negata, username esistente"); //
         }
-        free(nuovo_utente); // Libera la memoria allocata per il nuovo utente[cite: 6]
+        free(nuovo_utente); // Libera la memoria allocata per il nuovo utente
     } else {
-        header.esito = ESITO_KO; //[cite: 6]
+        header.esito = ESITO_KO; //
         strcpy(header.messaggio, "Errore interno server");
-        printf("Errore nella creazione dell'utente.\n"); //[cite: 6]
+        printf("Errore nella creazione dell'utente.\n"); //
     }
     
     // Manda l'esito
@@ -1474,7 +1515,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     }
 
     // 3. Sezione critica: un solo processo alla volta puo' leggere/scrivere le prenotazioni
-    int lock_fd = acquisisci_lock(LOCK_EX);
+    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
     if (lock_fd < 0) {
         header.esito = ESITO_KO;
         strcpy(header.messaggio, "Errore interno del server");
@@ -1719,23 +1760,6 @@ static bool verifica_disponibilita_aula(int id_aula, const char* data, const cha
     }
     fclose(file);
     return disponibile;
-}
-
-// Apre (creandolo se necessario) il file di lock e acquisisce il lock indicato (LOCK_EX o LOCK_SH)
-static int acquisisci_lock(int tipo_lock) {
-    int fd = open(FILE_LOCK_PRENOTAZIONI, O_CREAT | O_RDWR, 0666);
-    if (fd < 0) return -1;
-    if (flock(fd, tipo_lock) < 0) {
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-static void rilascia_lock(int lock_fd) {
-    if (lock_fd < 0) return;
-    flock(lock_fd, LOCK_UN);
-    close(lock_fd);
 }
 
 // Scansiona i file di tutte le aule per contare le prenotazioni attive di 'username'
