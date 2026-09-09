@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
@@ -9,8 +10,8 @@
 #include "interfaccia_ui.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
-void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,
-                                utente_t utente);
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,utente_t utente);
+void str_tolower(char *str);
 
 int main() {
   SocketInfo clientSock = inizializzaSocketClient();
@@ -68,7 +69,6 @@ int main() {
 
   op_cliente_t scelta_utente;
 
-  // Da qui in poi il codice è invariato!
   if (isAdmin) {
     do {
       printf("Accesso come amministratore.\n");
@@ -93,18 +93,23 @@ int main() {
 // =======================================================
 
 
-
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
   richiesta_t richiesta;
   richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
-    scanf("%10s", richiesta.utente.username);  // Aggiunto limite per sicurezza
+    scanf("%10s", richiesta.utente.username);
     str_tolower(richiesta.utente.username);
     printf("Inserisci la tua password [Max 20 caratteri]: ");
-    scanf("%20s", richiesta.utente.password);  // Aggiunto limite per sicurezza
+    scanf("%20s", richiesta.utente.password);
   }
 
   // Invia i dati al server
   write(clientSock.socketfd, &richiesta, sizeof(richiesta));
+}
+
+void str_tolower(char *str) {
+  for (int i = 0; str[i]; i++) {
+    str[i] = tolower((unsigned char)str[i]);
+  }
 }

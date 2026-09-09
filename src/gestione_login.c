@@ -7,7 +7,7 @@
 #include "gestione_login.h"
 #include "booking_system_struct.h"
 #include "gestione_lock.h"
-#include "debug.h"
+
 
 #define FILE_LOCK_UTENTI "dati/utenti.lock"
 
@@ -63,15 +63,16 @@ bool registraUtente(utente_t* utente) {
     int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_UTENTI);
     if (lock_fd < 0) return false;
 
-    LOG("Controllo se esiste un username simile");
+    printf("Controllo se esiste un username simile");
     if(!controllo_username(utente->username)) {
         if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
             crea_path_file_username(path, sizeof(path));
         }
         FILE* file = fopen(path, "ab");
-        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-        esito = true;
-        fclose(file);
+        if (file != NULL) {
+            esito = (fwrite(utente, sizeof(utente_t), 1, file) == 1);
+            fclose(file);
+        }
     }
 
     rilascia_lock(lock_fd);
@@ -89,7 +90,7 @@ static bool controllo_username(const char* username){
         while(fread(utente, sizeof(utente_t), 1, file) == 1){
             if(strcmp(utente->username, username) == 0){
                 esito = true;
-                LOG("USERNAME TROVATO");
+                printf("USERNAME TROVATO");
                 break;
             }
         }
@@ -102,9 +103,9 @@ static bool controllo_username(const char* username){
 }
 
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
-    LOG("verifica esistenza file");
+    printf("verifica esistenza file");
     snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
-    LOG("File da controllare : %s", path);
+    printf("File da controllare : %s\n", path);
     return access(path, F_OK) == 0; // Verifica se il file esiste
 }
 
