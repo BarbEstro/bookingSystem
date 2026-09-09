@@ -9,6 +9,7 @@ static size_t contatore_id_risorse(size_t* count) {
   return *count;
 }
 
+//FIXME aggiunta nella relazione che non ho usato un sistema unix per semplicità
 static void inizializzazione_cartella() {
   system("rm -rf dati");  // Il flag -r cancella RICORSIVAMENTE anche la cartella!
   system("mkdir dati");  // Ora la ricrea vuota da zero
