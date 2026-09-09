@@ -127,6 +127,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     }
 
     // 2. Valida la data e l'orario della prenotazione
+    //FIXME aggiungere nella relazione che suppongo che il cliente inserisca i dati corretti
     if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine, header.messaggio)) {
         header.esito = ESITO_KO;
         write(client_sock, &header, sizeof(header));
@@ -396,7 +397,7 @@ static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username
         prenotazione_t p;
         while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
             if (p.id_prenotazione > max_id) max_id = p.id_prenotazione;
-            if (strcmp(p.utente.username, username) == 0 && p.stato != RIFIUTATA) attive++;
+            if (strcmp(p.utente.username, username) == 0 && p.stato == ATTESA) attive++;
         }
         fclose(file);
     }
