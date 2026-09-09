@@ -9,10 +9,9 @@ static size_t contatore_id_risorse(size_t* count) {
   return *count;
 }
 
-//FIXME aggiunta nella relazione che non ho usato un sistema unix per semplicità
 static void inizializzazione_cartella() {
-  system("rm -rf dati");  // Il flag -r cancella RICORSIVAMENTE anche la cartella!
-  system("mkdir dati");  // Ora la ricrea vuota da zero
+  system("rm -rf dati");  
+  system("mkdir dati");  
 }
 
 static void creazione_file_utenza() {
@@ -41,7 +40,6 @@ static void inizializza_risorse_disponibilita() {
        // Aggiungi aula
     };
 
-  // Esempio di salvataggio su binario "dati/risorse.bn"
   FILE* file_risorse = fopen("dati/risorse.bn", "wb");
   if (file_risorse != NULL) {
     fwrite(aule, sizeof(risorsa_aula_t), n_risorse, file_risorse);

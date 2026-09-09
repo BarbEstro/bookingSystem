@@ -47,7 +47,6 @@ bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) 
   return true;  // Inserimento riuscito
 }
 
-//FIXME eliminato metodo per rimuovere una prenotazione dalla mappa
 
 void libera_mappa(mappa_t* mappa) {
   if (mappa == NULL) return;

@@ -17,35 +17,23 @@
 
 #define FILE_LOCK_PRENOTAZIONI "dati/prenotazioni.lock"
 
-static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione,
-                                      prenotazione_t* risultati, size_t count);
+static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione,prenotazione_t* risultati, size_t count);
 static void ottieni_data_odierna(char* buffer, size_t size);
 static void ottieni_ora_odierna(char* buffer, size_t size);
-static bool valida_data_e_ora(const char* data_req, const char* ora_inizio,
-                              const char* ora_fine, char* msg_errore);
-static bool verifica_disponibilita_aula(int id_aula, const char* data,
-                                        const char* ora_inizio,
-                                        const char* ora_fine);
-static void analizza_prenotazioni_esistenti(mappa_t* mappa,
-                                            const char* username,
-                                            size_t* out_attive_utente,
-                                            int* out_max_id);
+static bool valida_data_e_ora(const char* data_req, const char* ora_inizio,const char* ora_fine, char* msg_errore);
+static bool verifica_disponibilita_aula(int id_aula, const char* data, const char* ora_inizio,const char* ora_fine);
+static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id);
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale);
-static prenotazione_t* carica_prenotazioni_aula(int id_risorsa,
-                                                size_t* out_count);
-static bool salva_prenotazioni_aula(int id_risorsa,
-                                    const prenotazione_t* prenotazioni,
-                                    size_t count);
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count);
+static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count);
 static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b);
 
 void operazione_login(int client_sock, richiesta_t richiesta) {
   risposta_header_t header;
   header.operazione = OP_CLI_LOGIN;
 
-  printf("Richiesta di login ricevuta: username=%s, password=%s\n",
-         richiesta.utente.username, richiesta.utente.password);  
-  utente_t* utente = verificaCredenziali(richiesta.utente.username,
-                                         richiesta.utente.password);  
+  printf("Richiesta di login ricevuta: username=%s, password=%s\n",richiesta.utente.username, richiesta.utente.password);  
+  utente_t* utente = verificaCredenziali(richiesta.utente.username,richiesta.utente.password);  
 
   if (utente != NULL) {
     header.esito = ESITO_OK;                                    
@@ -57,7 +45,7 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
     write(client_sock, &header, sizeof(header));
     write(client_sock, utente, header.payload_size);
 
-    free(utente);  // Libera la memoria allocata per l'utente
+    free(utente); 
   } else {
     header.esito = ESITO_KO;                                 
     strcpy(header.messaggio, "USERNAME o PASSWORD errati");  
@@ -142,8 +130,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta,
   header.payload_size = 0;
 
   // 1. Legge il payload inviato dal client contenente la scelta dell'utente
-  if (read(client_sock, &dati_prenotazione, sizeof(richiesta_prenotazione_t)) <=
-      0) {
+  if (read(client_sock, &dati_prenotazione, sizeof(richiesta_prenotazione_t)) <= 0) {
     header.esito = ESITO_KO;
     strcpy(header.messaggio, "Errore nella ricezione dei dati di prenotazione");
     write(client_sock, &header, sizeof(header));
@@ -151,10 +138,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta,
   }
 
   // 2. Valida la data e l'orario della prenotazione
-  // FIXME aggiungere nella relazione che suppongo che il cliente inserisca i
-  // dati corretti
-  if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio,
-                         dati_prenotazione.ora_fine, header.messaggio)) {
+  if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio,dati_prenotazione.ora_fine, header.messaggio)) {
     header.esito = ESITO_KO;
     write(client_sock, &header, sizeof(header));
     return;
@@ -222,8 +206,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta,
   write(client_sock, &header, sizeof(header));
 }
 
-void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta,
-                                       mappa_t* mappa_prenotazioni) {
+void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
   int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
   mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
   size_t count = 0;
@@ -234,10 +217,8 @@ void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta,
   invia_elenco_prenotazioni(client_sock, OP_CLI_MIE_PRENOTAZ, risultati, count);
 }
 
-void operazione_lista_attesa_prenotazioni(int client_sock,
-                                          richiesta_t richiesta,
-                                          mappa_t* mappa_prenotazioni) {
-  (void)richiesta;
+void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
+  (void)richiesta; //eliminare avviso di variabile non usata 
   enum stato_prenotazione stato = ATTESA;
   int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
   mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
@@ -249,8 +230,7 @@ void operazione_lista_attesa_prenotazioni(int client_sock,
   invia_elenco_prenotazioni(client_sock, OP_ADM_LISTA_ATTESA, risultati, count);
 }
 
-void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta,
-                                      mappa_t* mappa_prenotazioni) {
+void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
   (void)mappa_prenotazioni;  // lo stato condiviso vive nei file per-aula, non
                              // nella RAM del processo
 
@@ -439,7 +419,6 @@ static bool verifica_disponibilita_aula(int id_aula, const char* data,
 
 // Scansiona i file di tutte le aule per contare le prenotazioni attive di
 // 'username' e determinare il prossimo id_prenotazione univoco da assegnare
-// (max esistente + 1)
 static void analizza_prenotazioni_esistenti(mappa_t* mappa,
                                             const char* username,
                                             size_t* out_attive_utente,
@@ -485,8 +464,7 @@ static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale) {
 
 // Carica in un array dinamico tutte le prenotazioni salvate per una specifica
 // aula
-static prenotazione_t* carica_prenotazioni_aula(int id_risorsa,
-                                                size_t* out_count) {
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count) {
   *out_count = 0;
   char path[64];
   mappa_path_file_aula(id_risorsa, path, sizeof(path));
@@ -517,17 +495,14 @@ static prenotazione_t* carica_prenotazioni_aula(int id_risorsa,
 
 // Riscrive per intero il file dell'aula con l'array aggiornato (usata da
 // approvazione/rifiuto)
-static bool salva_prenotazioni_aula(int id_risorsa,
-                                    const prenotazione_t* prenotazioni,
-                                    size_t count) {
+static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count) {
   char path[64];
   mappa_path_file_aula(id_risorsa, path, sizeof(path));
 
   FILE* file = fopen(path, "wb");
   if (file == NULL) return false;
 
-  bool esito = (count == 0) || (fwrite(prenotazioni, sizeof(prenotazione_t),
-                                       count, file) == count);
+  bool esito = (count == 0) || (fwrite(prenotazioni, sizeof(prenotazione_t), count, file) == count);
   fclose(file);
   return esito;
 }

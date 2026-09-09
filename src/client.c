@@ -49,15 +49,11 @@ int main() {
           isAdmin = utente_esecuzione.isAdmin;
 
         } else if (scelta == OP_CLI_REGISTRAZIONE) {
-          // Nessuna seconda read: la registrazione non invia payload
-          // (payload_size = 0)
           printf("%s\n", risposta.messaggio);
         }
         break;
 
       case ESITO_KO:
-        // In caso di errore (es. password errata), il server non invia payload.
-        // Leggiamo e stampiamo solo il messaggio dell'header.
         printf("[ERRORE] %s\n", risposta.messaggio);
         break;
 
@@ -87,10 +83,6 @@ int main() {
     } while (scelta_utente != OP_ESCI);
   }
 }
-
-// =======================================================
-// Le due funzioni sottostanti rimangono invariate
-// =======================================================
 
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {

@@ -8,7 +8,7 @@
 
 #define DEFAULT_PROTOCOL 0
 #define PORT 8080
-#define SERVER_IP "127.0.0.1" //TODO dopo vediamo come modificarlo
+#define SERVER_IP "127.0.0.1"
 
 SocketInfo inizializzaSocketServer(){
     SocketInfo socketInfo;
@@ -27,7 +27,6 @@ SocketInfo inizializzaSocketServer(){
         exit(EXIT_FAILURE);
     }
 
-    //FIXME cosa succede se ci sono più di 5 client che vogliono connettersi? Forse dovremmo gestire meglio questa cosa
     if(listen(socketInfo.socketfd, 5) < 0){
         perror("Errore nel listen del socket");
         exit(EXIT_FAILURE);

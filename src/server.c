@@ -68,8 +68,6 @@ static bool init_ram(const char* filename_risorse,
     return true;
 }
 
-
-
 int main() {
   printf("Inizio server...\n"); 
   SocketInfo serverSock = inizializzaSocketServer();
@@ -83,7 +81,8 @@ int main() {
       exit(EXIT_FAILURE);
   }
 
-  signal(SIGCHLD, SIG_IGN);
+  signal(SIGCHLD, SIG_IGN); 
+
   while (1) { 
     printf("In attesa di connessioni...\n"); 
     socklen_t clientAddressLength = sizeof(clientAddress); 
@@ -169,7 +168,7 @@ int main() {
     } else {
       // Processo padre
       printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
+      close(currentSocketfd); 
     }
   }
 }
