@@ -2,10 +2,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/file.h>
 
 #include "gestione_login.h"
 #include "booking_system_struct.h"
+#include "gestione_lock.h"
 #include "debug.h"
+
+#define FILE_LOCK_UTENTI "dati/utenti.lock"
 
 static bool controllo_username(const char* username);
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size);
@@ -26,36 +30,39 @@ utente_t* crea_utente(const char *username, const char *password, bool isAdmin) 
 utente_t* verificaCredenziali(const char *username, const char *password) {
     char primo_carattere = username[0];
     char path[32];
+    utente_t* risultato = NULL;
+
+    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_UTENTI);
+    if (lock_fd < 0) return NULL;
 
     if (verifica_esistenza_file_username(primo_carattere, path, sizeof(path))) {
         FILE* file = fopen(path, "rb");
         if (file != NULL) {
             utente_t* utente = malloc(sizeof(utente_t));
-            if (utente == NULL) {
-                fclose(file);
-                return NULL;
-            }
-
-            // Il ciclo legge un utente alla volta e si arresta da solo a fine file (EOF)
-            while (fread(utente, sizeof(utente_t), 1, file) == 1) {
-                if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
-                    fclose(file);
-                    return utente; // Credenziali corrette (memoria restituita al chiamante)
+            if (utente != NULL) {
+                while (fread(utente, sizeof(utente_t), 1, file) == 1) {
+                    if (strcmp(utente->username, username) == 0 && strcmp(utente->password, password) == 0) {
+                        risultato = utente;
+                        break;
+                    }
                 }
+                if (risultato == NULL) free(utente);
             }
-
-            // Se non trova corrispondenze, libera la memoria ed evita memory leak
-            free(utente);
             fclose(file);
         }
     }
-    
-    return NULL; // Utente non trovato o password errata
+
+    rilascia_lock(lock_fd);
+    return risultato;
 }
 
 bool registraUtente(utente_t* utente) {
     bool esito = false;
     char path[32];
+
+    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_UTENTI);
+    if (lock_fd < 0) return false;
+
     LOG("Controllo se esiste un username simile");
     if(!controllo_username(utente->username)) {
         if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
@@ -67,6 +74,7 @@ bool registraUtente(utente_t* utente) {
         fclose(file);
     }
 
+    rilascia_lock(lock_fd);
     return esito;
 }
 
