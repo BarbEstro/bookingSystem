@@ -54,11 +54,6 @@ typedef struct {
     int capienza;               // Es. 50
 } risorsa_aula_t;
 
-typedef struct {
-    risorsa_aula_t aula;       // ID, nome, capienza
-    int ore_stato[ORE];        // Array di 12 ore (0 = libera, 1 = occupata)
-} disponibilita_aula_t;
-
 //TODO cambiare le impostazioni delle ore
 typedef struct {
     int id_prenotazione;
