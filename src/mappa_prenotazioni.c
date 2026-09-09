@@ -47,38 +47,7 @@ bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula,prenotazione_t p) 
   return true;  // Inserimento riuscito
 }
 
-bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula,int id_prenotazione) {
-  if (mappa == NULL) return false;
-
-  size_t indice = 0;
-  bool trovato = false;
-  for (size_t i = 0; i < mappa->num_aule; i++) {
-    if (mappa->bucket[i].id_risorsa == id_aula) {
-      indice = i;
-      trovato = true;
-      break;
-    }
-  }
-  if (!trovato) return false;  // Aula inesistente
-
-  nodo_prenotazione_t* current = mappa->bucket[indice].testa;
-  nodo_prenotazione_t* prev = NULL;
-
-  while (current != NULL) {
-    if (current->dato.id_prenotazione == id_prenotazione) {
-      if (prev == NULL) {
-        mappa->bucket[indice].testa = current->next;
-      } else {
-        prev->next = current->next;
-      }
-      free(current);
-      return true;
-    }
-    prev = current;
-    current = current->next;
-  }
-  return false;
-}
+//FIXME eliminato metodo per rimuovere una prenotazione dalla mappa
 
 void libera_mappa(mappa_t* mappa) {
   if (mappa == NULL) return;

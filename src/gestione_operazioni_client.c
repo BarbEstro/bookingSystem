@@ -91,8 +91,14 @@ static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente
 
     richiesta_prenotazione_t dati_p;
     printf("\n--- Dettagli nuova prenotazione ---\n");
+
     printf("Inserisci ID dell'aula scelta: ");
-    scanf("%d", &dati_p.id_risorsa);
+    while (scanf("%d", &dati_p.id_risorsa) != 1) {
+        // Se scanf fallisce (es. l'utente scrive lettere), svuota lo stdin fino all'Invio
+        while (getchar() != '\n'); 
+        printf("[ERRORE] Inserisci un ID numerico valido: ");
+    }
+    
     printf("Inserisci data (YYYY-MM-DD): ");
     scanf("%10s", dati_p.data);
     printf("Inserisci ora inizio (HH:MM): ");
@@ -247,19 +253,35 @@ static void gestisci_gestione_prenotazioni(SocketInfo clientSock, utente_t utent
         return;
     }
 
-    char decisione[10];
-    printf("Accetta o rifiuta? (accetta/rifiuta): ");
-    scanf("%9s", decisione);
-
+   int scelta_dec;
     richiesta_t req_decisione;
     req_decisione.utente = utente;
-    if (strcmp(decisione, "accetta") == 0) {
-        req_decisione.operazione = OP_ADM_APPROVA_PRENOTAZ;
-    } else if (strcmp(decisione, "rifiuta") == 0) {
-        req_decisione.operazione = OP_ADM_RIFIUTA_PRENOTAZ;
-    } else {
-        printf("[ERRORE] Scelta non riconosciuta, operazione annullata.\n");
-        return;
+
+    while (1) {
+        printf("\nSeleziona l'azione da eseguire per la prenotazione %d:\n", id_scelto);
+        printf("1. Accetta\n");
+        printf("2. Rifiuta\n");
+        printf("0. Annulla e torna al menu\n");
+        printf("Scelta: ");
+
+        if (scanf("%d", &scelta_dec) != 1) {
+            while (getchar() != '\n'); // Pulisce il buffer in caso di caratteri non numerici
+            printf("[ERRORE] Inserisci un numero valido.\n");
+            continue;
+        }
+
+        if (scelta_dec == 1) {
+            req_decisione.operazione = OP_ADM_APPROVA_PRENOTAZ;
+            break;
+        } else if (scelta_dec == 2) {
+            req_decisione.operazione = OP_ADM_RIFIUTA_PRENOTAZ;
+            break;
+        } else if (scelta_dec == 0) {
+            printf("Operazione annullata.\n");
+            return;
+        } else {
+            printf("[ERRORE] Opzione non valida, riprova.\n");
+        }
     }
 
     richiesta_gestione_prenotazione_t dati_decisione;
