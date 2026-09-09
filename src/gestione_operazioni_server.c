@@ -84,14 +84,14 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
       crea_utente(richiesta.utente.username, richiesta.utente.password,
                   richiesta.utente.isAdmin);  //
 
-  LOG("Fase di controllo utente");                           //
+  printf("Fase di controllo utente");                           //
   if (nuovo_utente != NULL) {                                //
     if (registraUtente(nuovo_utente)) {                      //
-      LOG("Non esiste");                                     //
+      printf("Non esiste");                                     //
       header.esito = ESITO_OK;                               //
       strcpy(header.messaggio, "Registrazione effettuata");  //
     } else {
-      LOG("esiste username");                                                //
+      printf("esiste username");                                                //
       header.esito = ESITO_KO;                                               //
       strcpy(header.messaggio, "Registrazione negata, username esistente");  //
     }
