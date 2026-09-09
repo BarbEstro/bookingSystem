@@ -2,7 +2,7 @@
 #define PREDICATI_PRENOTAZIONI_H
 
 #include <stdbool.h>
-#include "mappa_prenotazioni.h" // per prenotazione_t
+#include "mappa_prenotazioni.h" 
 
 // Predicato: la prenotazione appartiene all'utente il cui username e' passato come contesto
 bool predicato_per_username(const prenotazione_t* p, void* contesto);

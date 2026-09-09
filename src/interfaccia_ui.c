@@ -3,25 +3,22 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-// ============================================================================
+
 // 1. STRUTTURA DATI INTERNA
-// ============================================================================
 typedef struct {
     int tasto;           // Il numero da digitare (es. 1, 2, 0)
     const char *testo;   // La descrizione mostrata a schermo
     op_cliente_t azione; // L'enum associato a quell'opzione
 } VoceMenu;
 
-// ============================================================================
 // 2. TABELLE DEI MENU (Single Source of Truth)
-// Modifica SOLO queste tabelle per aggiungere, rimuovere o rinominare voci!
-// ============================================================================
 
 static const VoceMenu MENU_LOGIN[] = {
     {1, "Login", OP_CLI_LOGIN},
     {2, "Registrazione", OP_CLI_REGISTRAZIONE},
     {0, "Esci", OP_ESCI}
 };
+
 static const int NUM_LOGIN = sizeof(MENU_LOGIN) / sizeof(MENU_LOGIN[0]);
 
 static const VoceMenu MENU_CLIENTE[] = {
@@ -38,9 +35,9 @@ static const VoceMenu MENU_ADMIN[] = {
 };
 static const int NUM_ADMIN = sizeof(MENU_ADMIN) / sizeof(MENU_ADMIN[0]);
 
-// ============================================================================
+
 // 3. FUNZIONI DI SUPPORTO PRIVATE (Generiche per tutti i menu)
-// ============================================================================
+
 
 static void mostra_menu_generico(const char *titolo, const VoceMenu menu[], int size) {
     if (titolo != NULL) {
@@ -74,10 +71,7 @@ static op_cliente_t leggi_scelta_generica(const VoceMenu menu[], int size) {
     }
 }
 
-// ============================================================================
 // 4. FUNZIONI PUBBLICHE
-// Fanno da "ponte": non devi cambiare nulla nel tuo client.c!
-// ============================================================================
 
 void interfaccia_login() {
     mostra_menu_generico(NULL, MENU_LOGIN, NUM_LOGIN);

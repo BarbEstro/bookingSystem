@@ -14,7 +14,4 @@ void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, m
 void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
 void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni);
 
-// Carica risorse da file: restituisce un array terminato con id_risorsa == -1
-//risorsa_aula_t* carica_risorse_da_file(const char* filename);
-
 #endif // GESTIONE_OPERAZIONI_SERVER_H

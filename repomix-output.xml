@@ -43,7 +43,6 @@ The content is organized as follows:
 include/
   booking_system_struct.h
   comunicazioneSocket.h
-  debug.h
   gestione_lock.h
   gestione_login.h
   gestione_operazioni_client.h
@@ -88,22 +87,6 @@ SocketInfo inizializzaSocketServer();
 SocketInfo inizializzaSocketClient();
 
 #endif
-</file>
-
-<file path="include/debug.h">
-#ifndef DEBUG_H
-#define DEBUG_H
-
-#include <stdio.h>
-
-#ifdef DEBUG
-    // In modalità debug: 1 sola riga pulita con prefisso [DEBUG]
-    #define LOG(fmt, ...) fprintf(stderr, "[DEBUG] " fmt "\n", ##__VA_ARGS__)
-#else
-    #define LOG(fmt, ...) ((void)0)
-#endif
-
-#endif // DEBUG_H
 </file>
 
 <file path="include/gestione_lock.h">
@@ -1074,7 +1057,7 @@ int main() {
 #include "gestione_login.h"
 #include "booking_system_struct.h"
 #include "gestione_lock.h"
-#include "debug.h"
+
 
 #define FILE_LOCK_UTENTI "dati/utenti.lock"
 
@@ -1130,15 +1113,16 @@ bool registraUtente(utente_t* utente) {
     int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_UTENTI);
     if (lock_fd < 0) return false;
 
-    LOG("Controllo se esiste un username simile");
+    printf("Controllo se esiste un username simile");
     if(!controllo_username(utente->username)) {
         if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
             crea_path_file_username(path, sizeof(path));
         }
         FILE* file = fopen(path, "ab");
-        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-        esito = true;
-        fclose(file);
+        if (file != NULL) {
+            esito = (fwrite(utente, sizeof(utente_t), 1, file) == 1);
+            fclose(file);
+        }
     }
 
     rilascia_lock(lock_fd);
@@ -1156,7 +1140,7 @@ static bool controllo_username(const char* username){
         while(fread(utente, sizeof(utente_t), 1, file) == 1){
             if(strcmp(utente->username, username) == 0){
                 esito = true;
-                LOG("USERNAME TROVATO");
+                printf("USERNAME TROVATO");
                 break;
             }
         }
@@ -1169,9 +1153,9 @@ static bool controllo_username(const char* username){
 }
 
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
-    LOG("verifica esistenza file");
+    printf("verifica esistenza file");
     snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
-    LOG("File da controllare : %s", path);
+    printf("File da controllare : %s\n", path);
     return access(path, F_OK) == 0; // Verifica se il file esiste
 }
 
@@ -1239,7 +1223,7 @@ typedef struct {
     int capienza;               // Es. 50
 } risorsa_aula_t;
 
-//TODO cambiare le impostazioni delle ore
+
 typedef struct {
     int id_prenotazione;
     int id_risorsa;
@@ -1298,24 +1282,19 @@ CFLAGS += $(RELEASE_FLAGS)
 BIN_DIR = bin
 
 SRC_DIR = src
-TEST_DIR = tests
 
-CLIENT_SRCS = $(SRC_DIR)/client.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/interfaccia_ui.c $(SRC_DIR)/gestione_operazioni_client.c
-SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_operazioni_server.c $(SRC_DIR)/mappa_prenotazioni.c $(SRC_DIR)/predicati_prenotazioni.c
-INIT_SRCS = $(SRC_DIR)/init.c $(SRC_DIR)/gestione_login.c
-TEST_SRCS = $(TEST_DIR)/test_gestione_login.c $(SRC_DIR)/gestione_login.c
-TEST_UI_SRCS = $(TEST_DIR)/test_interfaccia_ui.c $(SRC_DIR)/interfaccia_ui.c
+CLIENT_SRCS = $(SRC_DIR)/client.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/interfaccia_ui.c $(SRC_DIR)/gestione_lock.c $(SRC_DIR)/gestione_operazioni_client.c
+SERVER_SRCS = $(SRC_DIR)/server.c $(SRC_DIR)/comunicazioneSocket.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_lock.c $(SRC_DIR)/gestione_operazioni_server.c $(SRC_DIR)/mappa_prenotazioni.c $(SRC_DIR)/predicati_prenotazioni.c
+INIT_SRCS = $(SRC_DIR)/init.c $(SRC_DIR)/gestione_login.c $(SRC_DIR)/gestione_lock.c
 
 CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
 SERVER_OBJS = $(SERVER_SRCS:.c=.o)
 INIT_OBJS = $(INIT_SRCS:.c=.o)
-TEST_OBJS = $(TEST_SRCS:.c=.o)
-TEST_UI_OBJS = $(TEST_UI_SRCS:.c=.o)
 
 all: client server init
 
 debug: CFLAGS = -Wall -Iinclude $(DEBUG_FLAGS)
-debug: client server init test_login test_interfaccia_ui
+debug: client server init
 
 client: $(CLIENT_OBJS)
 	@mkdir -p $(BIN_DIR)
@@ -1324,14 +1303,6 @@ client: $(CLIENT_OBJS)
 server: $(SERVER_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $(BIN_DIR)/server $(SERVER_OBJS)
-
-test_login: $(TEST_OBJS)
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/test_login $(TEST_OBJS)
-
-test_interfaccia_ui: $(TEST_UI_OBJS)
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/test_interfaccia_ui $(TEST_UI_OBJS)
 
 init: $(INIT_OBJS)
 	@mkdir -p $(BIN_DIR)
@@ -1345,13 +1316,9 @@ run-init: init
 
 # Default clean: remove object files and main binaries but keep test executable
 clean:
-	rm -f $(CLIENT_OBJS) $(SERVER_OBJS) $(INIT_OBJS) $(TEST_OBJS) $(TEST_UI_OBJS) *.o
+	rm -f $(CLIENT_OBJS) $(SERVER_OBJS) $(INIT_OBJS) *.o
 	rm -rf $(BIN_DIR)
 	rm -rf dati
-
-# Separate rule to clean test artifacts when desired
-clean-tests:
-	rm -f $(BIN_DIR)/test_login $(BIN_DIR)/test_interfaccia_ui $(TEST_OBJS) $(TEST_UI_SRCS:.c=.o)
 
 run-server: server
 	$(BIN_DIR)/server
@@ -1359,7 +1326,7 @@ run-server: server
 run-client: client
 	$(BIN_DIR)/client
 
-.PHONY: all debug client server init run-init test_login test_interfaccia_ui clean clean-tests run-server run-client
+.PHONY: all debug client server init run-init run-server run-client clean
 </file>
 
 <file path="src/server.c">
@@ -1372,7 +1339,6 @@ run-client: client
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
-#include "debug.h"
 #include "mappa_prenotazioni.h"
 
 static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_num_risorse) {
@@ -1546,6 +1512,7 @@ int main() {
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
@@ -1553,8 +1520,8 @@ int main() {
 #include "interfaccia_ui.h"
 
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta);
-void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,
-                                utente_t utente);
+void manda_richiesta_operazione(SocketInfo clientSock, op_cliente_t scelta,utente_t utente);
+void str_tolower(char *str);
 
 int main() {
   SocketInfo clientSock = inizializzaSocketClient();
@@ -1612,7 +1579,6 @@ int main() {
 
   op_cliente_t scelta_utente;
 
-  // Da qui in poi il codice è invariato!
   if (isAdmin) {
     do {
       printf("Accesso come amministratore.\n");
@@ -1637,489 +1603,569 @@ int main() {
 // =======================================================
 
 
-
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
   richiesta_t richiesta;
   richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
-    scanf("%10s", richiesta.utente.username);  // Aggiunto limite per sicurezza
+    scanf("%10s", richiesta.utente.username);
     str_tolower(richiesta.utente.username);
     printf("Inserisci la tua password [Max 20 caratteri]: ");
-    scanf("%20s", richiesta.utente.password);  // Aggiunto limite per sicurezza
+    scanf("%20s", richiesta.utente.password);
   }
 
   // Invia i dati al server
   write(clientSock.socketfd, &richiesta, sizeof(richiesta));
 }
+
+void str_tolower(char *str) {
+  for (int i = 0; str[i]; i++) {
+    str[i] = tolower((unsigned char)str[i]);
+  }
+}
 </file>
 
 <file path="src/gestione_operazioni_server.c">
+#include "gestione_operazioni_server.h"
+
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <time.h>
-#include <fcntl.h>
 #include <sys/file.h>
-#include "gestione_operazioni_server.h"
+#include <time.h>
+#include <unistd.h>
+
+
+#include "gestione_lock.h"
 #include "gestione_login.h"
 #include "mappa_prenotazioni.h"
 #include "predicati_prenotazioni.h"
-#include "debug.h"
 
 #define FILE_LOCK_PRENOTAZIONI "dati/prenotazioni.lock"
 
-static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione, prenotazione_t* risultati, size_t count);
-static void ottieni_data_odierna(char *buffer, size_t size);
-static void ottieni_ora_odierna(char *buffer, size_t size);
-static bool valida_data_e_ora(const char *data_req, const char *ora_inizio, const char *ora_fine, char *msg_errore);
-static bool verifica_disponibilita_aula(int id_aula, const char* data, const char* ora_inizio, const char* ora_fine);
-static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id);
+static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione,
+                                      prenotazione_t* risultati, size_t count);
+static void ottieni_data_odierna(char* buffer, size_t size);
+static void ottieni_ora_odierna(char* buffer, size_t size);
+static bool valida_data_e_ora(const char* data_req, const char* ora_inizio,
+                              const char* ora_fine, char* msg_errore);
+static bool verifica_disponibilita_aula(int id_aula, const char* data,
+                                        const char* ora_inizio,
+                                        const char* ora_fine);
+static void analizza_prenotazioni_esistenti(mappa_t* mappa,
+                                            const char* username,
+                                            size_t* out_attive_utente,
+                                            int* out_max_id);
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale);
-static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count);
-static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count);
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa,
+                                                size_t* out_count);
+static bool salva_prenotazioni_aula(int id_risorsa,
+                                    const prenotazione_t* prenotazioni,
+                                    size_t count);
 static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b);
 
 void operazione_login(int client_sock, richiesta_t richiesta) {
-    risposta_header_t header;
-    header.operazione = OP_CLI_LOGIN;
+  risposta_header_t header;
+  header.operazione = OP_CLI_LOGIN;
 
-    printf("Richiesta di login ricevuta: username=%s, password=%s\n", richiesta.utente.username, richiesta.utente.password); //
-    utente_t* utente = verificaCredenziali(richiesta.utente.username, richiesta.utente.password); //
-    
-    if(utente != NULL) {
-        header.esito = ESITO_OK; //
-        strcpy(header.messaggio, "Login effettuato con successo"); //
-        header.num_elementi = 1;
-        header.payload_size = sizeof(utente_t); 
+  printf("Richiesta di login ricevuta: username=%s, password=%s\n",
+         richiesta.utente.username, richiesta.utente.password);  
+  utente_t* utente = verificaCredenziali(richiesta.utente.username,
+                                         richiesta.utente.password);  
 
-        // 1. Invio prima l'Header, poi l'Utente
-        write(client_sock, &header, sizeof(header));
-        write(client_sock, utente, header.payload_size);
-        
-        free(utente); // Libera la memoria allocata per l'utente
-    } else {
-        header.esito = ESITO_KO; //
-        strcpy(header.messaggio, "USERNAME o PASSWORD errati"); //
-        header.num_elementi = 0;
-        header.payload_size = 0; // Nessun payload
-        
-        // 2. Mando solo l'header per notificare l'errore
-        write(client_sock, &header, sizeof(header));
-    }
+  if (utente != NULL) {
+    header.esito = ESITO_OK;                                    
+    strcpy(header.messaggio, "Login effettuato con successo");  
+    header.num_elementi = 1;
+    header.payload_size = sizeof(utente_t);
+
+    // 1. Invio prima l'Header, poi l'Utente
+    write(client_sock, &header, sizeof(header));
+    write(client_sock, utente, header.payload_size);
+
+    free(utente);  // Libera la memoria allocata per l'utente
+  } else {
+    header.esito = ESITO_KO;                                 
+    strcpy(header.messaggio, "USERNAME o PASSWORD errati");  
+    header.num_elementi = 0;
+    header.payload_size = 0;  // Nessun payload
+
+    // 2. Mando solo l'header per notificare l'errore
+    write(client_sock, &header, sizeof(header));
+  }
 }
 
 void operazione_registrazione(int client_sock, richiesta_t richiesta) {
-    risposta_header_t header;
-    header.operazione = OP_CLI_REGISTRAZIONE;
-    header.num_elementi = 0;
-    header.payload_size = 0; // La registrazione non invia mai payload!
+  risposta_header_t header;
+  header.operazione = OP_CLI_REGISTRAZIONE;
+  header.num_elementi = 0;
+  header.payload_size = 0;  // La registrazione non invia mai payload!
 
-    printf("Richiesta di registrazione ricevuta: username=%s, password=%s, isAdmin=%d\n", richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
-    utente_t* nuovo_utente = crea_utente(richiesta.utente.username, richiesta.utente.password, richiesta.utente.isAdmin); //
-    
-    LOG("Fase di controllo utente"); //
-    if (nuovo_utente != NULL){ //
-        if (registraUtente(nuovo_utente)) { //
-            LOG("Non esiste"); //
-            header.esito = ESITO_OK; //
-            strcpy(header.messaggio, "Registrazione effettuata"); //
-        } else {
-            LOG("esiste username"); //
-            header.esito = ESITO_KO; //
-            strcpy(header.messaggio, "Registrazione negata, username esistente"); //
-        }
-        free(nuovo_utente); // Libera la memoria allocata per il nuovo utente
+  printf(
+      "Richiesta di registrazione ricevuta: username=%s, password=%s, "
+      "isAdmin=%d\n",
+      richiesta.utente.username, richiesta.utente.password,
+      richiesta.utente.isAdmin);  
+  utente_t* nuovo_utente =
+      crea_utente(richiesta.utente.username, richiesta.utente.password,
+                  richiesta.utente.isAdmin);  
+
+  printf("Fase di controllo utente");                           
+  if (nuovo_utente != NULL) {                                
+    if (registraUtente(nuovo_utente)) {                      
+      printf("Non esiste");                                     
+      header.esito = ESITO_OK;                               
+      strcpy(header.messaggio, "Registrazione effettuata");  
     } else {
-        header.esito = ESITO_KO; //
-        strcpy(header.messaggio, "Errore interno server");
-        printf("Errore nella creazione dell'utente.\n"); //
+      printf("esiste username");                                                
+      header.esito = ESITO_KO;                                               
+      strcpy(header.messaggio, "Registrazione negata, username esistente");  
     }
-    
-    // Manda l'esito
-    write(client_sock, &header, sizeof(header));
+    free(nuovo_utente);  // Libera la memoria allocata per il nuovo utente
+  } else {
+    header.esito = ESITO_KO;  
+    strcpy(header.messaggio, "Errore interno server");
+    printf("Errore nella creazione dell'utente.\n");  
+  }
+
+  // Manda l'esito
+  write(client_sock, &header, sizeof(header));
 }
 
-void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta, risorsa_aula_t* aule, size_t num_aule) {
+void operazione_invia_catalogo_aule(int client_sock, richiesta_t richiesta,
+                                    risorsa_aula_t* aule, size_t num_aule) {
+  risposta_header_t header;
+  header.operazione =
+      richiesta.operazione;  // Usa automaticamente l'operazione della richiesta
 
-    risposta_header_t header;
-    header.operazione = richiesta.operazione; // Usa automaticamente l'operazione della richiesta
-
-    if (aule != NULL && num_aule > 0) {
-        header.esito = ESITO_OK;
-        strcpy(header.messaggio, "Elenco aule per selezione");
-        header.num_elementi = (int)num_aule;
-        header.payload_size = num_aule * sizeof(risorsa_aula_t); 
-    } else {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Nessuna risorsa trovata sul server");
-        header.num_elementi = 0;
-        header.payload_size = 0;
-    }
-
-    // 1. Invio dell'header
-    write(client_sock, &header, sizeof(header));
-
-    // 2. Invio del payload con l'array di aule
-    if (header.esito == ESITO_OK && header.payload_size > 0) {
-        write(client_sock, aule, header.payload_size);
-    }
-}
-
-void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
-    richiesta_prenotazione_t dati_prenotazione;
-    risposta_header_t header;
-    header.operazione = OP_CLI_NUOVA_PRENOTAZ;
-    header.num_elementi = 0;
-    header.payload_size = 0;
-
-    // 1. Legge il payload inviato dal client contenente la scelta dell'utente
-    if (read(client_sock, &dati_prenotazione, sizeof(richiesta_prenotazione_t)) <= 0) {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Errore nella ricezione dei dati di prenotazione");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    // 2. Valida la data e l'orario della prenotazione
-    //FIXME aggiungere nella relazione che suppongo che il cliente inserisca i dati corretti
-    if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine, header.messaggio)) {
-        header.esito = ESITO_KO;
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    // 3. Sezione critica: un solo processo alla volta puo' leggere/scrivere le prenotazioni
-    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
-    if (lock_fd < 0) {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Errore interno del server");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    size_t prenotazioni_attive_utente;
-    int prossimo_id;
-    analizza_prenotazioni_esistenti(mappa_prenotazioni, richiesta.utente.username, &prenotazioni_attive_utente, &prossimo_id);
-
-    if (prenotazioni_attive_utente >= MAX_PRENOTAZIONI_ATTIVE) {
-        rilascia_lock(lock_fd);
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Numero massimo di prenotazioni attive raggiunto");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    if (!mappa_esiste_aula(mappa_prenotazioni, dati_prenotazione.id_risorsa)) {
-        rilascia_lock(lock_fd);
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Aula inesistente");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    if (!verifica_disponibilita_aula(dati_prenotazione.id_risorsa, dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine)) {
-        rilascia_lock(lock_fd);
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Aula gia' occupata nella fascia oraria richiesta");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    prenotazione_t nuova_p;
-    nuova_p.id_prenotazione = prossimo_id;
-    nuova_p.id_risorsa = dati_prenotazione.id_risorsa;
-    strcpy(nuova_p.data, dati_prenotazione.data);
-    strcpy(nuova_p.ora_inizio, dati_prenotazione.ora_inizio);
-    strcpy(nuova_p.ora_fine, dati_prenotazione.ora_fine);
-    nuova_p.stato = ATTESA;
-    nuova_p.utente = richiesta.utente;
-
-    mappa_salva_prenotazione_su_file(nuova_p);
-
-    rilascia_lock(lock_fd);
-
+  if (aule != NULL && num_aule > 0) {
     header.esito = ESITO_OK;
-    strcpy(header.messaggio, "Prenotazione inviata con successo!");
-
-    // 4. Risposta al client
-    write(client_sock, &header, sizeof(header));
-}
-
-void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
-    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
-    mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
-    size_t count = 0;
-    prenotazione_t* risultati = mappa_filtra_prenotazioni(mappa_fresca, predicato_per_username, richiesta.utente.username, &count);
-    rilascia_lock(lock_fd);
-    libera_mappa(mappa_fresca);
-    invia_elenco_prenotazioni(client_sock, OP_CLI_MIE_PRENOTAZ, risultati, count);
-}
-
-void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
-    (void)richiesta;
-    enum stato_prenotazione stato = ATTESA;
-    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
-    mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
-    size_t count = 0;
-    prenotazione_t* risultati = mappa_filtra_prenotazioni(mappa_fresca, predicato_per_stato, &stato, &count);
-    rilascia_lock(lock_fd);
-    libera_mappa(mappa_fresca);
-    invia_elenco_prenotazioni(client_sock, OP_ADM_LISTA_ATTESA, risultati, count);
-}
-
-void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
-    (void)mappa_prenotazioni; // lo stato condiviso vive nei file per-aula, non nella RAM del processo
-
-    richiesta_gestione_prenotazione_t dati;
-    risposta_header_t header;
-    header.operazione = richiesta.operazione;
+    strcpy(header.messaggio, "Elenco aule per selezione");
+    header.num_elementi = (int)num_aule;
+    header.payload_size = num_aule * sizeof(risorsa_aula_t);
+  } else {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Nessuna risorsa trovata sul server");
     header.num_elementi = 0;
     header.payload_size = 0;
+  }
 
-    if (read(client_sock, &dati, sizeof(richiesta_gestione_prenotazione_t)) <= 0) {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Errore nella ricezione dei dati");
-        write(client_sock, &header, sizeof(header));
-        return;
+  // 1. Invio dell'header
+  write(client_sock, &header, sizeof(header));
+
+  // 2. Invio del payload con l'array di aule
+  if (header.esito == ESITO_OK && header.payload_size > 0) {
+    write(client_sock, aule, header.payload_size);
+  }
+}
+
+void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta,
+                                   mappa_t* mappa_prenotazioni) {
+  richiesta_prenotazione_t dati_prenotazione;
+  risposta_header_t header;
+  header.operazione = OP_CLI_NUOVA_PRENOTAZ;
+  header.num_elementi = 0;
+  header.payload_size = 0;
+
+  // 1. Legge il payload inviato dal client contenente la scelta dell'utente
+  if (read(client_sock, &dati_prenotazione, sizeof(richiesta_prenotazione_t)) <=
+      0) {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Errore nella ricezione dei dati di prenotazione");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  // 2. Valida la data e l'orario della prenotazione
+  // FIXME aggiungere nella relazione che suppongo che il cliente inserisca i
+  // dati corretti
+  if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio,
+                         dati_prenotazione.ora_fine, header.messaggio)) {
+    header.esito = ESITO_KO;
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  // 3. Sezione critica: un solo processo alla volta puo' leggere/scrivere le
+  // prenotazioni
+  int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
+  if (lock_fd < 0) {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Errore interno del server");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  size_t prenotazioni_attive_utente;
+  int prossimo_id;
+  analizza_prenotazioni_esistenti(mappa_prenotazioni, richiesta.utente.username,
+                                  &prenotazioni_attive_utente, &prossimo_id);
+
+  if (prenotazioni_attive_utente >= MAX_PRENOTAZIONI_ATTIVE) {
+    rilascia_lock(lock_fd);
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Numero massimo di prenotazioni attive raggiunto");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  if (!mappa_esiste_aula(mappa_prenotazioni, dati_prenotazione.id_risorsa)) {
+    rilascia_lock(lock_fd);
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Aula inesistente");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  if (!verifica_disponibilita_aula(
+          dati_prenotazione.id_risorsa, dati_prenotazione.data,
+          dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine)) {
+    rilascia_lock(lock_fd);
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio,
+           "Aula gia' occupata nella fascia oraria richiesta");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  prenotazione_t nuova_p;
+  nuova_p.id_prenotazione = prossimo_id;
+  nuova_p.id_risorsa = dati_prenotazione.id_risorsa;
+  strcpy(nuova_p.data, dati_prenotazione.data);
+  strcpy(nuova_p.ora_inizio, dati_prenotazione.ora_inizio);
+  strcpy(nuova_p.ora_fine, dati_prenotazione.ora_fine);
+  nuova_p.stato = ATTESA;
+  nuova_p.utente = richiesta.utente;
+
+  mappa_salva_prenotazione_su_file(nuova_p);
+
+  rilascia_lock(lock_fd);
+
+  header.esito = ESITO_OK;
+  strcpy(header.messaggio, "Prenotazione inviata con successo!");
+
+  // 4. Risposta al client
+  write(client_sock, &header, sizeof(header));
+}
+
+void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta,
+                                       mappa_t* mappa_prenotazioni) {
+  int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
+  mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
+  size_t count = 0;
+  prenotazione_t* risultati = mappa_filtra_prenotazioni(
+      mappa_fresca, predicato_per_username, richiesta.utente.username, &count);
+  rilascia_lock(lock_fd);
+  libera_mappa(mappa_fresca);
+  invia_elenco_prenotazioni(client_sock, OP_CLI_MIE_PRENOTAZ, risultati, count);
+}
+
+void operazione_lista_attesa_prenotazioni(int client_sock,
+                                          richiesta_t richiesta,
+                                          mappa_t* mappa_prenotazioni) {
+  (void)richiesta;
+  enum stato_prenotazione stato = ATTESA;
+  int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
+  mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
+  size_t count = 0;
+  prenotazione_t* risultati = mappa_filtra_prenotazioni(
+      mappa_fresca, predicato_per_stato, &stato, &count);
+  rilascia_lock(lock_fd);
+  libera_mappa(mappa_fresca);
+  invia_elenco_prenotazioni(client_sock, OP_ADM_LISTA_ATTESA, risultati, count);
+}
+
+void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta,
+                                      mappa_t* mappa_prenotazioni) {
+  (void)mappa_prenotazioni;  // lo stato condiviso vive nei file per-aula, non
+                             // nella RAM del processo
+
+  richiesta_gestione_prenotazione_t dati;
+  risposta_header_t header;
+  header.operazione = richiesta.operazione;
+  header.num_elementi = 0;
+  header.payload_size = 0;
+
+  if (read(client_sock, &dati, sizeof(richiesta_gestione_prenotazione_t)) <=
+      0) {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Errore nella ricezione dei dati");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  // Sezione critica: nessun altro processo puo' leggere/scrivere le
+  // prenotazioni in questo momento
+  int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
+  if (lock_fd < 0) {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Errore interno del server");
+    write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  size_t count = 0;
+  prenotazione_t* prenotazioni =
+      carica_prenotazioni_aula(dati.id_risorsa, &count);
+
+  int indice_target = -1;
+  for (size_t i = 0; i < count; i++) {
+    if (prenotazioni[i].id_prenotazione == dati.id_prenotazione) {
+      indice_target = (int)i;
+      break;
     }
+  }
 
-    // Sezione critica: nessun altro processo puo' leggere/scrivere le prenotazioni in questo momento
-    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
-    if (lock_fd < 0) {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Errore interno del server");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    size_t count = 0;
-    prenotazione_t* prenotazioni = carica_prenotazioni_aula(dati.id_risorsa, &count);
-
-    int indice_target = -1;
-    for (size_t i = 0; i < count; i++) {
-        if (prenotazioni[i].id_prenotazione == dati.id_prenotazione) {
-            indice_target = (int)i;
-            break;
-        }
-    }
-
-    if (indice_target < 0 || prenotazioni[indice_target].stato != ATTESA) {
-        rilascia_lock(lock_fd);
-        free(prenotazioni);
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Prenotazione non trovata o gia' gestita");
-        write(client_sock, &header, sizeof(header));
-        return;
-    }
-
-    if (richiesta.operazione == OP_ADM_APPROVA_PRENOTAZ) {
-        prenotazioni[indice_target].stato = APPROVATA;
-        // Chi era in attesa e si sovrapponeva alla prenotazione ora approvata non e' piu' realizzabile
-        for (size_t i = 0; i < count; i++) {
-            if ((int)i == indice_target) continue;
-            if (prenotazioni[i].stato == ATTESA && si_sovrappongono(&prenotazioni[i], &prenotazioni[indice_target])) {
-                prenotazioni[i].stato = RIFIUTATA;
-            }
-        }
-        strcpy(header.messaggio, "Prenotazione approvata");
-    } else {
-        prenotazioni[indice_target].stato = RIFIUTATA;
-        strcpy(header.messaggio, "Prenotazione rifiutata");
-    }
-
-    bool salvato = salva_prenotazioni_aula(dati.id_risorsa, prenotazioni, count);
+  if (indice_target < 0 || prenotazioni[indice_target].stato != ATTESA) {
     rilascia_lock(lock_fd);
     free(prenotazioni);
-
-    header.esito = salvato ? ESITO_OK : ESITO_KO;
-    if (!salvato) strcpy(header.messaggio, "Errore nel salvataggio della prenotazione");
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Prenotazione non trovata o gia' gestita");
     write(client_sock, &header, sizeof(header));
+    return;
+  }
+
+  if (richiesta.operazione == OP_ADM_APPROVA_PRENOTAZ) {
+    prenotazioni[indice_target].stato = APPROVATA;
+    // Chi era in attesa e si sovrapponeva alla prenotazione ora approvata non
+    // e' piu' realizzabile
+    for (size_t i = 0; i < count; i++) {
+      if ((int)i == indice_target) continue;
+      if (prenotazioni[i].stato == ATTESA &&
+          si_sovrappongono(&prenotazioni[i], &prenotazioni[indice_target])) {
+        prenotazioni[i].stato = RIFIUTATA;
+      }
+    }
+    strcpy(header.messaggio, "Prenotazione approvata");
+  } else {
+    prenotazioni[indice_target].stato = RIFIUTATA;
+    strcpy(header.messaggio, "Prenotazione rifiutata");
+  }
+
+  bool salvato = salva_prenotazioni_aula(dati.id_risorsa, prenotazioni, count);
+  rilascia_lock(lock_fd);
+  free(prenotazioni);
+
+  header.esito = salvato ? ESITO_OK : ESITO_KO;
+  if (!salvato)
+    strcpy(header.messaggio, "Errore nel salvataggio della prenotazione");
+  write(client_sock, &header, sizeof(header));
 }
 
-// Invia al client l'array 'risultati' (gia' filtrato) come risposta a 'operazione'
-static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione, prenotazione_t* risultati, size_t count) {
-    risposta_header_t header;
-    header.operazione = operazione;
+// Invia al client l'array 'risultati' (gia' filtrato) come risposta a
+// 'operazione'
+static void invia_elenco_prenotazioni(int client_sock, op_cliente_t operazione,
+                                      prenotazione_t* risultati, size_t count) {
+  risposta_header_t header;
+  header.operazione = operazione;
 
-    if (risultati != NULL && count > 0) {
-        header.esito = ESITO_OK;
-        strcpy(header.messaggio, "Elenco prenotazioni");
-        header.num_elementi = (int)count;
-        header.payload_size = count * sizeof(prenotazione_t);
-    } else {
-        header.esito = ESITO_KO;
-        strcpy(header.messaggio, "Nessuna prenotazione trovata");
-        header.num_elementi = 0;
-        header.payload_size = 0;
-    }
+  if (risultati != NULL && count > 0) {
+    header.esito = ESITO_OK;
+    strcpy(header.messaggio, "Elenco prenotazioni");
+    header.num_elementi = (int)count;
+    header.payload_size = count * sizeof(prenotazione_t);
+  } else {
+    header.esito = ESITO_KO;
+    strcpy(header.messaggio, "Nessuna prenotazione trovata");
+    header.num_elementi = 0;
+    header.payload_size = 0;
+  }
 
-    write(client_sock, &header, sizeof(header));
-    if (header.esito == ESITO_OK) {
-        write(client_sock, risultati, header.payload_size);
-    }
-    free(risultati);
+  write(client_sock, &header, sizeof(header));
+  if (header.esito == ESITO_OK) {
+    write(client_sock, risultati, header.payload_size);
+  }
+  free(risultati);
 }
 
-// Popola 'buffer' con la data odierna nel formato "YYYY-MM-DD" (es. "2026-09-03")
-static void ottieni_data_odierna(char *buffer, size_t size) {
-    time_t t = time(NULL);
-    struct tm *tm_info = localtime(&t);
-    strftime(buffer, size, "%Y-%m-%d", tm_info);
+// Popola 'buffer' con la data odierna nel formato "YYYY-MM-DD" (es.
+// "2026-09-03")
+static void ottieni_data_odierna(char* buffer, size_t size) {
+  time_t t = time(NULL);
+  struct tm* tm_info = localtime(&t);
+  strftime(buffer, size, "%Y-%m-%d", tm_info);
 }
 
 // Popola 'buffer' con l'ora attuale nel formato "HH:MM" (es. "14:30")
-static void ottieni_ora_odierna(char *buffer, size_t size) {
-    time_t t = time(NULL);
-    struct tm *tm_info = localtime(&t);
-    strftime(buffer, size, "%H:%M", tm_info);
+static void ottieni_ora_odierna(char* buffer, size_t size) {
+  time_t t = time(NULL);
+  struct tm* tm_info = localtime(&t);
+  strftime(buffer, size, "%H:%M", tm_info);
 }
 
-static bool valida_data_e_ora(const char *data_req, const char *ora_inizio, const char *ora_fine, char *msg_errore) {
-    char data_oggi[11];
-    char ora_oggi[6];
+static bool valida_data_e_ora(const char* data_req, const char* ora_inizio,
+                              const char* ora_fine, char* msg_errore) {
+  char data_oggi[11];
+  char ora_oggi[6];
 
-    ottieni_data_odierna(data_oggi, sizeof(data_oggi));
-    ottieni_ora_odierna(ora_oggi, sizeof(ora_oggi));
+  ottieni_data_odierna(data_oggi, sizeof(data_oggi));
+  ottieni_ora_odierna(ora_oggi, sizeof(ora_oggi));
 
-    // 1. Controllo coerenza orario: ora_inizio deve precedere ora_fine
-    if (strcmp(ora_inizio, ora_fine) >= 0) {
-        strcpy(msg_errore, "Errore: L'ora di inizio deve essere precedente all'ora di fine.");
-        return false;
-    }
+  // 1. Controllo coerenza orario: ora_inizio deve precedere ora_fine
+  if (strcmp(ora_inizio, ora_fine) >= 0) {
+    strcpy(msg_errore,
+           "Errore: L'ora di inizio deve essere precedente all'ora di fine.");
+    return false;
+  }
 
-    // 2. Controllo Data: non puo essere nel passato
-    int cmp_data = strcmp(data_req, data_oggi);
-    
-    if (cmp_data < 0) {
-        strcpy(msg_errore, "Errore: Impossibile prenotare per una data passata.");
-        return false;
-    }
+  // 2. Controllo Data: non puo essere nel passato
+  int cmp_data = strcmp(data_req, data_oggi);
 
+  if (cmp_data < 0) {
+    strcpy(msg_errore, "Errore: Impossibile prenotare per una data passata.");
+    return false;
+  }
 
-    // 3. Se la data e OGGI, l'ora di inizio non puo essere gia passata
-    if (cmp_data == 0) {
-        if (strcmp(ora_inizio, ora_oggi) <= 0) {
-            strcpy(msg_errore, "Errore: Per oggi l'ora di inizio deve essere successiva all'ora attuale.");
-            return false;
-        }
-    }
-
-    // 4. Controllo fascia oraria consentita: 08:00 - 19:00
-    if (strcmp(ora_inizio, "08:00") < 0 || strcmp(ora_fine, "19:00") > 0) {
+  // 3. Se la data e OGGI, l'ora di inizio non puo essere gia passata
+  if (cmp_data == 0) {
+    if (strcmp(ora_inizio, ora_oggi) <= 0) {
       strcpy(msg_errore,
-             "Errore: Le prenotazioni sono consentite solo tra le 08:00 e le "
-             "19:00.");
+             "Errore: Per oggi l'ora di inizio deve essere successiva all'ora "
+             "attuale.");
       return false;
     }
-    return true; // Tutti i controlli sono superati
+  }
+
+  // 4. Controllo fascia oraria consentita: 08:00 - 19:00
+  if (strcmp(ora_inizio, "08:00") < 0 || strcmp(ora_fine, "19:00") > 0) {
+    strcpy(msg_errore,
+           "Errore: Le prenotazioni sono consentite solo tra le 08:00 e le "
+           "19:00.");
+    return false;
+  }
+  return true;  // Tutti i controlli sono superati
 }
 
-static bool verifica_disponibilita_aula(int id_aula, const char* data, const char* ora_inizio, const char* ora_fine) {
-    char path[64];
-    mappa_path_file_aula(id_aula, path, sizeof(path));
+static bool verifica_disponibilita_aula(int id_aula, const char* data,
+                                        const char* ora_inizio,
+                                        const char* ora_fine) {
+  char path[64];
+  mappa_path_file_aula(id_aula, path, sizeof(path));
 
+  FILE* file = fopen(path, "rb");
+  if (file == NULL)
+    return true;  // Nessuna prenotazione esistente per questa aula
+
+  bool disponibile = true;
+  prenotazione_t p;
+  while (disponibile && fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
+    // Le prenotazioni rifiutate non occupano piu' la fascia oraria
+    if (p.stato != RIFIUTATA && p.stato != ATTESA &&
+        strcmp(p.data, data) == 0) {
+      // Controllo sovrapposizione oraria
+      if (!(strcmp(ora_fine, p.ora_inizio) <= 0 ||
+            strcmp(ora_inizio, p.ora_fine) >= 0)) {
+        disponibile = false;
+      }
+    }
+  }
+  fclose(file);
+  return disponibile;
+}
+
+// Scansiona i file di tutte le aule per contare le prenotazioni attive di
+// 'username' e determinare il prossimo id_prenotazione univoco da assegnare
+// (max esistente + 1)
+static void analizza_prenotazioni_esistenti(mappa_t* mappa,
+                                            const char* username,
+                                            size_t* out_attive_utente,
+                                            int* out_max_id) {
+  size_t attive = 0;
+  int max_id = 0;
+  char path[64];
+
+  for (size_t i = 0; i < mappa->num_aule; i++) {
+    mappa_path_file_aula(mappa->bucket[i].id_risorsa, path, sizeof(path));
     FILE* file = fopen(path, "rb");
-    if (file == NULL) return true;  // Nessuna prenotazione esistente per questa aula
+    if (file == NULL) continue;
 
-    bool disponibile = true;
     prenotazione_t p;
-    while (disponibile && fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
-        // Le prenotazioni rifiutate non occupano piu' la fascia oraria
-        if (p.stato != RIFIUTATA && p.stato != ATTESA && strcmp(p.data, data) == 0) {
-            // Controllo sovrapposizione oraria
-            if (!(strcmp(ora_fine, p.ora_inizio) <= 0 || strcmp(ora_inizio, p.ora_fine) >= 0)) {
-                disponibile = false;
-            }
-        }
+    while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
+      if (p.id_prenotazione > max_id) max_id = p.id_prenotazione;
+      if (strcmp(p.utente.username, username) == 0 && p.stato == ATTESA)
+        attive++;
     }
     fclose(file);
-    return disponibile;
+  }
+
+  if (out_attive_utente != NULL) *out_attive_utente = attive;
+  if (out_max_id != NULL) *out_max_id = max_id + 1;
 }
 
-// Scansiona i file di tutte le aule per contare le prenotazioni attive di 'username'
-// e determinare il prossimo id_prenotazione univoco da assegnare (max esistente + 1)
-static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username, size_t* out_attive_utente, int* out_max_id) {
-    size_t attive = 0;
-    int max_id = 0;
-    char path[64];
-
-    for (size_t i = 0; i < mappa->num_aule; i++) {
-        mappa_path_file_aula(mappa->bucket[i].id_risorsa, path, sizeof(path));
-        FILE* file = fopen(path, "rb");
-        if (file == NULL) continue;
-
-        prenotazione_t p;
-        while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
-            if (p.id_prenotazione > max_id) max_id = p.id_prenotazione;
-            if (strcmp(p.utente.username, username) == 0 && p.stato == ATTESA) attive++;
-        }
-        fclose(file);
-    }
-
-    if (out_attive_utente != NULL) *out_attive_utente = attive;
-    if (out_max_id != NULL) *out_max_id = max_id + 1;
-}
-
-// Ricostruisce da file una mappa temporanea con le stesse aule di 'mappa_originale',
-// da usare per avere una vista sempre aggiornata durante le operazioni di sola lettura
+// Ricostruisce da file una mappa temporanea con le stesse aule di
+// 'mappa_originale', da usare per avere una vista sempre aggiornata durante le
+// operazioni di sola lettura
 static mappa_t* ricostruisci_mappa_da_file(mappa_t* mappa_originale) {
-    risorsa_aula_t* aule_tmp = malloc(mappa_originale->num_aule * sizeof(risorsa_aula_t));
-    if (aule_tmp == NULL) return NULL;
-    for (size_t i = 0; i < mappa_originale->num_aule; i++) {
-        aule_tmp[i].id_risorsa = mappa_originale->bucket[i].id_risorsa;
+  risorsa_aula_t* aule_tmp =
+      malloc(mappa_originale->num_aule * sizeof(risorsa_aula_t));
+  if (aule_tmp == NULL) return NULL;
+  for (size_t i = 0; i < mappa_originale->num_aule; i++) {
+    aule_tmp[i].id_risorsa = mappa_originale->bucket[i].id_risorsa;
+  }
+
+  mappa_t* mappa_fresca = crea_mappa(aule_tmp, mappa_originale->num_aule);
+  free(aule_tmp);
+  if (mappa_fresca != NULL) mappa_carica_da_file(mappa_fresca);
+  return mappa_fresca;
+}
+
+// Carica in un array dinamico tutte le prenotazioni salvate per una specifica
+// aula
+static prenotazione_t* carica_prenotazioni_aula(int id_risorsa,
+                                                size_t* out_count) {
+  *out_count = 0;
+  char path[64];
+  mappa_path_file_aula(id_risorsa, path, sizeof(path));
+
+  FILE* file = fopen(path, "rb");
+  if (file == NULL) return NULL;
+
+  fseek(file, 0, SEEK_END);
+  long file_size = ftell(file);
+  rewind(file);
+
+  size_t count = file_size / sizeof(prenotazione_t);
+  prenotazione_t* prenotazioni = NULL;
+  if (count > 0) {
+    prenotazioni = malloc(count * sizeof(prenotazione_t));
+    if (prenotazioni != NULL) {
+      if (fread(prenotazioni, sizeof(prenotazione_t), count, file) != count) {
+        free(prenotazioni);
+        prenotazioni = NULL;
+      }
     }
+  }
+  fclose(file);
 
-    mappa_t* mappa_fresca = crea_mappa(aule_tmp, mappa_originale->num_aule);
-    free(aule_tmp);
-    if (mappa_fresca != NULL) mappa_carica_da_file(mappa_fresca);
-    return mappa_fresca;
+  *out_count = (prenotazioni != NULL) ? count : 0;
+  return prenotazioni;
 }
 
-// Carica in un array dinamico tutte le prenotazioni salvate per una specifica aula
-static prenotazione_t* carica_prenotazioni_aula(int id_risorsa, size_t* out_count) {
-    *out_count = 0;
-    char path[64];
-    mappa_path_file_aula(id_risorsa, path, sizeof(path));
+// Riscrive per intero il file dell'aula con l'array aggiornato (usata da
+// approvazione/rifiuto)
+static bool salva_prenotazioni_aula(int id_risorsa,
+                                    const prenotazione_t* prenotazioni,
+                                    size_t count) {
+  char path[64];
+  mappa_path_file_aula(id_risorsa, path, sizeof(path));
 
-    FILE* file = fopen(path, "rb");
-    if (file == NULL) return NULL;
+  FILE* file = fopen(path, "wb");
+  if (file == NULL) return false;
 
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    rewind(file);
-
-    size_t count = file_size / sizeof(prenotazione_t);
-    prenotazione_t* prenotazioni = NULL;
-    if (count > 0) {
-        prenotazioni = malloc(count * sizeof(prenotazione_t));
-        if (prenotazioni != NULL) fread(prenotazioni, sizeof(prenotazione_t), count, file);
-    }
-    fclose(file);
-
-    *out_count = (prenotazioni != NULL) ? count : 0;
-    return prenotazioni;
+  bool esito = (count == 0) || (fwrite(prenotazioni, sizeof(prenotazione_t),
+                                       count, file) == count);
+  fclose(file);
+  return esito;
 }
 
-// Riscrive per intero il file dell'aula con l'array aggiornato (usata da approvazione/rifiuto)
-static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenotazioni, size_t count) {
-    char path[64];
-    mappa_path_file_aula(id_risorsa, path, sizeof(path));
-
-    FILE* file = fopen(path, "wb");
-    if (file == NULL) return false;
-
-    bool esito = (count == 0) || (fwrite(prenotazioni, sizeof(prenotazione_t), count, file) == count);
-    fclose(file);
-    return esito;
-}
-
-// Due prenotazioni sono in conflitto se riguardano la stessa data e le fasce orarie si sovrappongono
+// Due prenotazioni sono in conflitto se riguardano la stessa data e le fasce
+// orarie si sovrappongono
 static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b) {
-    if (strcmp(a->data, b->data) != 0) return false;
-    return !(strcmp(a->ora_fine, b->ora_inizio) <= 0 || strcmp(a->ora_inizio, b->ora_fine) >= 0);
+  if (strcmp(a->data, b->data) != 0) return false;
+  return !(strcmp(a->ora_fine, b->ora_inizio) <= 0 ||
+           strcmp(a->ora_inizio, b->ora_fine) >= 0);
 }
 </file>
 

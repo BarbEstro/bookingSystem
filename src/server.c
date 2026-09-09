@@ -7,7 +7,6 @@
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
-#include "debug.h"
 #include "mappa_prenotazioni.h"
 
 static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_num_risorse) {
@@ -69,8 +68,6 @@ static bool init_ram(const char* filename_risorse,
     return true;
 }
 
-
-
 int main() {
   printf("Inizio server...\n"); 
   SocketInfo serverSock = inizializzaSocketServer();
@@ -84,7 +81,8 @@ int main() {
       exit(EXIT_FAILURE);
   }
 
-  signal(SIGCHLD, SIG_IGN);
+  signal(SIGCHLD, SIG_IGN); 
+
   while (1) { 
     printf("In attesa di connessioni...\n"); 
     socklen_t clientAddressLength = sizeof(clientAddress); 
@@ -170,7 +168,7 @@ int main() {
     } else {
       // Processo padre
       printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
+      close(currentSocketfd); 
     }
   }
 }

@@ -53,9 +53,6 @@ void gestisci_operazione_admin(SocketInfo clientSock, op_cliente_t scelta, utent
 }
 
 static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente_t utente) {
-    // =========================================================================
-    // FASE 1: Richiesta catalogo aule al server
-    // =========================================================================
     richiesta_t req_aule;
     req_aule.operazione = OP_CLI_LISTA_RISORSE;
     req_aule.utente = utente;
@@ -80,9 +77,7 @@ static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente
         }
     }
 
-    // =========================================================================
-    // FASE 2: Stampa aule e raccolta scelta utente
-    // =========================================================================
+    //stampa aule disponibili
     printf("\n=== AULE DISPONIBILI PER LA PRENOTAZIONE (%d) ===\n", header.num_elementi);
     for (int i = 0; i < header.num_elementi; i++) {
         printf("[%d] %s (Capienza: %d posti)\n", aule[i].id_risorsa, aule[i].nome, aule[i].capienza);
@@ -94,7 +89,6 @@ static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente
 
     printf("Inserisci ID dell'aula scelta: ");
     while (scanf("%d", &dati_p.id_risorsa) != 1) {
-        // Se scanf fallisce (es. l'utente scrive lettere), svuota lo stdin fino all'Invio
         while (getchar() != '\n'); 
         printf("[ERRORE] Inserisci un ID numerico valido: ");
     }
@@ -106,9 +100,7 @@ static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente
     printf("Inserisci ora fine (HH:MM): ");
     scanf("%5s", dati_p.ora_fine);
 
-    // =========================================================================
-    // FASE 3: Invia la vera e propria richiesta di prenotazione
-    // =========================================================================
+    //Invia richiesta
     richiesta_t req_prenotazione;
     req_prenotazione.operazione = OP_CLI_NUOVA_PRENOTAZ;
     req_prenotazione.utente = utente;
@@ -164,7 +156,7 @@ static void gestisci_mie_prenotazioni(SocketInfo clientSock, utente_t utente) {
     free(mie_prenotazioni);
 }
 
-// Richiede al server la lista d'attesa e restituisce l'array ricevuto (NULL se vuota/errore)
+
 static prenotazione_t* richiedi_lista_attesa(SocketInfo clientSock, utente_t utente, int* out_count) {
     *out_count = 0;
 
