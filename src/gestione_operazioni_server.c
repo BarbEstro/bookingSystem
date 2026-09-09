@@ -191,7 +191,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
 }
 
 void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
-    int lock_fd = acquisisci_lock(LOCK_SH);
+    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
     mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
     size_t count = 0;
     prenotazione_t* risultati = mappa_filtra_prenotazioni(mappa_fresca, predicato_per_username, richiesta.utente.username, &count);
@@ -203,7 +203,7 @@ void operazione_lista_mie_prenotazioni(int client_sock, richiesta_t richiesta, m
 void operazione_lista_attesa_prenotazioni(int client_sock, richiesta_t richiesta, mappa_t* mappa_prenotazioni) {
     (void)richiesta;
     enum stato_prenotazione stato = ATTESA;
-    int lock_fd = acquisisci_lock(LOCK_SH);
+    int lock_fd = acquisisci_lock(LOCK_SH, FILE_LOCK_PRENOTAZIONI);
     mappa_t* mappa_fresca = ricostruisci_mappa_da_file(mappa_prenotazioni);
     size_t count = 0;
     prenotazione_t* risultati = mappa_filtra_prenotazioni(mappa_fresca, predicato_per_stato, &stato, &count);
@@ -229,7 +229,7 @@ void operazione_gestisci_prenotazione(int client_sock, richiesta_t richiesta, ma
     }
 
     // Sezione critica: nessun altro processo puo' leggere/scrivere le prenotazioni in questo momento
-    int lock_fd = acquisisci_lock(LOCK_EX);
+    int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_PRENOTAZIONI);
     if (lock_fd < 0) {
         header.esito = ESITO_KO;
         strcpy(header.messaggio, "Errore interno del server");
