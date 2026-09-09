@@ -445,8 +445,14 @@ static void gestisci_operazione_nuova_prenotazione(SocketInfo clientSock, utente
 
     richiesta_prenotazione_t dati_p;
     printf("\n--- Dettagli nuova prenotazione ---\n");
+
     printf("Inserisci ID dell'aula scelta: ");
-    scanf("%d", &dati_p.id_risorsa);
+    while (scanf("%d", &dati_p.id_risorsa) != 1) {
+        // Se scanf fallisce (es. l'utente scrive lettere), svuota lo stdin fino all'Invio
+        while (getchar() != '\n'); 
+        printf("[ERRORE] Inserisci un ID numerico valido: ");
+    }
+    
     printf("Inserisci data (YYYY-MM-DD): ");
     scanf("%10s", dati_p.data);
     printf("Inserisci ora inizio (HH:MM): ");
@@ -601,19 +607,35 @@ static void gestisci_gestione_prenotazioni(SocketInfo clientSock, utente_t utent
         return;
     }
 
-    char decisione[10];
-    printf("Accetta o rifiuta? (accetta/rifiuta): ");
-    scanf("%9s", decisione);
-
+   int scelta_dec;
     richiesta_t req_decisione;
     req_decisione.utente = utente;
-    if (strcmp(decisione, "accetta") == 0) {
-        req_decisione.operazione = OP_ADM_APPROVA_PRENOTAZ;
-    } else if (strcmp(decisione, "rifiuta") == 0) {
-        req_decisione.operazione = OP_ADM_RIFIUTA_PRENOTAZ;
-    } else {
-        printf("[ERRORE] Scelta non riconosciuta, operazione annullata.\n");
-        return;
+
+    while (1) {
+        printf("\nSeleziona l'azione da eseguire per la prenotazione %d:\n", id_scelto);
+        printf("1. Accetta\n");
+        printf("2. Rifiuta\n");
+        printf("0. Annulla e torna al menu\n");
+        printf("Scelta: ");
+
+        if (scanf("%d", &scelta_dec) != 1) {
+            while (getchar() != '\n'); // Pulisce il buffer in caso di caratteri non numerici
+            printf("[ERRORE] Inserisci un numero valido.\n");
+            continue;
+        }
+
+        if (scelta_dec == 1) {
+            req_decisione.operazione = OP_ADM_APPROVA_PRENOTAZ;
+            break;
+        } else if (scelta_dec == 2) {
+            req_decisione.operazione = OP_ADM_RIFIUTA_PRENOTAZ;
+            break;
+        } else if (scelta_dec == 0) {
+            printf("Operazione annullata.\n");
+            return;
+        } else {
+            printf("[ERRORE] Opzione non valida, riprova.\n");
+        }
     }
 
     richiesta_gestione_prenotazione_t dati_decisione;
@@ -632,74 +654,6 @@ static void gestisci_gestione_prenotazioni(SocketInfo clientSock, utente_t utent
         }
     }
 }
-</file>
-
-<file path="include/mappa_prenotazioni.h">
-#ifndef MAPPA_PRENOTAZIONI_H
-#define MAPPA_PRENOTAZIONI_H
-
-//TODO aggiunta di stampa o log per il servers
-
-#include "booking_system_struct.h"
-#include <stdbool.h>
-
-// Nodo della lista concatenata
-typedef struct nodo_prenotazione {
-    prenotazione_t dato;
-    struct nodo_prenotazione* next;
-} nodo_prenotazione_t;
-
-// Bucket per la singola aula
-typedef struct {
-    int id_risorsa;
-    nodo_prenotazione_t* testa;
-} bucket_aula_t;
-
-// Struttura Contenitore della Mappa
-typedef struct {
-    bucket_aula_t* bucket;
-    size_t num_aule;
-} mappa_t;
-
-typedef bool (*predicato_prenotazione_t)(const prenotazione_t*, void*);
-
-// Alloca la mappa dinamicamente in base agli ID aule caricati
-mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule);
-
-// Inserisce una nuova prenotazione nel bucket dell'aula corrispondente
-bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula, prenotazione_t p);
-
-// Ritorna il puntatore alla testa della lista di prenotazioni per una determinata aula
-nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula);
-
-// Ritorna true se 'id_aula' corrisponde a un'aula effettivamente presente nella mappa
-bool mappa_esiste_aula(mappa_t* mappa, int id_aula);
-
-// Rimuove una specifica prenotazione tramite il suo id_prenotazione
-bool mappa_rimuovi_prenotazione(mappa_t* mappa, int id_aula, int id_prenotazione);
-
-// Predicato usato da mappa_filtra_prenotazioni: ritorna true se 'p' soddisfa il criterio di ricerca
-typedef bool (*prenotazione_predicato_t)(const prenotazione_t* p, void* contesto);
-
-prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, 
-                                            predicato_prenotazione_t predicato, 
-                                            void* contesto, 
-                                            size_t* count);
-                                            
-// Distrugge l'intera mappa e libera tutta la memoria allocata (nodi + bucket)
-void libera_mappa(mappa_t* mappa);
-
-// Costruisce in 'buffer' il percorso del file dedicato alle prenotazioni di una specifica aula
-void mappa_path_file_aula(int id_risorsa, char* buffer, size_t size);
-
-// Appende su file la prenotazione, nel file dedicato alla sua aula
-bool mappa_salva_prenotazione_su_file(prenotazione_t p);
-
-// Carica in una mappa gia' allocata tutte le prenotazioni salvate su file per le sue aule
-bool mappa_carica_da_file(mappa_t* mappa);
-
-
-#endif // MAPPA_PRENOTAZIONI_H
 </file>
 
 <file path="src/interfaccia_ui.c">
@@ -807,6 +761,71 @@ void interfaccia_utente_admin() {
 op_cliente_t operazioni_admin() {
     return leggi_scelta_generica(MENU_ADMIN, NUM_ADMIN);
 }
+</file>
+
+<file path="include/mappa_prenotazioni.h">
+#ifndef MAPPA_PRENOTAZIONI_H
+#define MAPPA_PRENOTAZIONI_H
+
+//TODO aggiunta di stampa o log per il servers
+
+#include "booking_system_struct.h"
+#include <stdbool.h>
+
+// Nodo della lista concatenata
+typedef struct nodo_prenotazione {
+    prenotazione_t dato;
+    struct nodo_prenotazione* next;
+} nodo_prenotazione_t;
+
+// Bucket per la singola aula
+typedef struct {
+    int id_risorsa;
+    nodo_prenotazione_t* testa;
+} bucket_aula_t;
+
+// Struttura Contenitore della Mappa
+typedef struct {
+    bucket_aula_t* bucket;
+    size_t num_aule;
+} mappa_t;
+
+typedef bool (*predicato_prenotazione_t)(const prenotazione_t*, void*);
+
+// Alloca la mappa dinamicamente in base agli ID aule caricati
+mappa_t* crea_mappa(const risorsa_aula_t* aule, size_t num_aule);
+
+// Inserisce una nuova prenotazione nel bucket dell'aula corrispondente
+bool mappa_inserisci_prenotazione(mappa_t* mappa, int id_aula, prenotazione_t p);
+
+// Ritorna il puntatore alla testa della lista di prenotazioni per una determinata aula
+nodo_prenotazione_t* mappa_ottieni_lista(mappa_t* mappa, int id_aula);
+
+// Ritorna true se 'id_aula' corrisponde a un'aula effettivamente presente nella mappa
+bool mappa_esiste_aula(mappa_t* mappa, int id_aula);
+
+// Predicato usato da mappa_filtra_prenotazioni: ritorna true se 'p' soddisfa il criterio di ricerca
+typedef bool (*prenotazione_predicato_t)(const prenotazione_t* p, void* contesto);
+
+prenotazione_t* mappa_filtra_prenotazioni(mappa_t* mappa, 
+                                            predicato_prenotazione_t predicato, 
+                                            void* contesto, 
+                                            size_t* count);
+                                            
+// Distrugge l'intera mappa e libera tutta la memoria allocata (nodi + bucket)
+void libera_mappa(mappa_t* mappa);
+
+// Costruisce in 'buffer' il percorso del file dedicato alle prenotazioni di una specifica aula
+void mappa_path_file_aula(int id_risorsa, char* buffer, size_t size);
+
+// Appende su file la prenotazione, nel file dedicato alla sua aula
+bool mappa_salva_prenotazione_su_file(prenotazione_t p);
+
+// Carica in una mappa gia' allocata tutte le prenotazioni salvate su file per le sue aule
+bool mappa_carica_da_file(mappa_t* mappa);
+
+
+#endif // MAPPA_PRENOTAZIONI_H
 </file>
 
 <file path="src/mappa_prenotazioni.c">
@@ -1343,6 +1362,185 @@ run-client: client
 .PHONY: all debug client server init run-init test_login test_interfaccia_ui clean clean-tests run-server run-client
 </file>
 
+<file path="src/server.c">
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
+
+#include "booking_system_struct.h"
+#include "comunicazioneSocket.h"
+#include "gestione_operazioni_server.h"
+#include "debug.h"
+#include "mappa_prenotazioni.h"
+
+static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_num_risorse) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    size_t num_risorse = file_size / sizeof(risorsa_aula_t);
+
+    // Allocazione dinamica + 1 elemento sentinella
+    risorsa_aula_t* risorse = malloc((num_risorse + 1) * sizeof(risorsa_aula_t));
+    if (!risorse) {
+        fclose(file);
+        return NULL;
+    }
+
+    fread(risorse, sizeof(risorsa_aula_t), num_risorse, file);
+    fclose(file);
+
+    // Sentinella di fine array per iterazioni veloci
+    risorse[num_risorse].id_risorsa = -1; 
+
+    if (out_num_risorse != NULL) {
+        *out_num_risorse = num_risorse;
+    }
+
+    return risorse;
+}
+
+static bool init_ram(const char* filename_risorse, 
+                        risorsa_aula_t** out_aule, 
+                        size_t* out_num_risorse, 
+                        mappa_t** out_mappa) {
+    size_t num_aule = 0;
+
+    // 1. Carica le aule dal file in RAM
+    *out_aule = carica_risorse_da_file(filename_risorse, &num_aule);
+    if (*out_aule == NULL) {
+        perror("Errore durante il caricamento del file risorse");
+        return false;
+    }
+
+    // 2. Crea la mappa con il numero esatto (e dinamico) di aule caricate
+    *out_mappa = crea_mappa(*out_aule, num_aule);
+    if (*out_mappa == NULL) {
+        fprintf(stderr, "Errore nella allocazione della mappa prenotazioni.\n");
+        free(*out_aule);
+        *out_aule = NULL;
+        return false;
+    }
+
+    if (out_num_risorse != NULL) {
+        *out_num_risorse = num_aule;
+    }
+
+    return true;
+}
+
+
+
+int main() {
+  printf("Inizio server...\n"); 
+  SocketInfo serverSock = inizializzaSocketServer();
+  struct sockaddr_in clientAddress; 
+  int currentSocketfd;
+  size_t num_aule = 0;
+  mappa_t* mappa_prenotazioni = NULL;
+  risorsa_aula_t* out_aule = NULL;
+  if(init_ram("dati/risorse.bn", &out_aule, &num_aule, &mappa_prenotazioni) == false) {
+      fprintf(stderr, "Errore nell'inizializzazione della RAM.\n");
+      exit(EXIT_FAILURE);
+  }
+
+  signal(SIGCHLD, SIG_IGN);
+  while (1) { 
+    printf("In attesa di connessioni...\n"); 
+    socklen_t clientAddressLength = sizeof(clientAddress); 
+    currentSocketfd = accept(serverSock.socketfd, (struct sockaddr*)&clientAddress, &clientAddressLength); 
+    if (currentSocketfd < 0) { 
+      perror("Errore nell'accept del socket"); 
+      exit(EXIT_FAILURE); 
+    }
+
+    pid_t pid = fork(); 
+    if (pid < 0) { 
+      perror("Errore nella creazione del processo figlio"); 
+      exit(EXIT_FAILURE); 
+    }
+    if (pid == 0) {
+      // Processo figlio
+      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio
+      printf("Nuova connessione accettata, creando processo figlio...\n"); 
+
+      while (1) {
+        richiesta_t richiesta;
+        if (read(currentSocketfd, &richiesta, sizeof(richiesta)) <= 0) {
+            printf("Client disconnesso.\n");
+            close(currentSocketfd);
+            exit(EXIT_FAILURE);
+        }
+
+        utente_t utente = richiesta.utente; 
+
+        switch (richiesta.operazione) { 
+          case OP_CLI_LOGIN: 
+            printf("Gestione operazione di login...\n"); 
+            operazione_login(currentSocketfd, richiesta);
+            break;
+
+          case OP_CLI_REGISTRAZIONE: 
+            printf("Gestione operazione di registrazione...\n"); 
+            operazione_registrazione(currentSocketfd, richiesta);
+            break;
+
+          case OP_CLI_LISTA_RISORSE: 
+            printf("Richiesta di elenco risorse da: %s\n", utente.username); 
+            operazione_invia_catalogo_aule(currentSocketfd, richiesta, out_aule, num_aule);
+            break;
+
+          case OP_CLI_NUOVA_PRENOTAZ: 
+            printf("Nuova prenotazione richiesta da %s\n", utente.username);
+            operazione_salva_prenotazione(currentSocketfd, richiesta, mappa_prenotazioni);
+            break;
+
+          case OP_CLI_MIE_PRENOTAZ: 
+            printf("Richiesta di visualizzazione prenotazione da: %s\n", utente.username); 
+            operazione_lista_mie_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
+            break;
+
+          case OP_ADM_LISTA_ATTESA:
+            printf("Richiesta elenco di tutte le prenotazioni da: %s\n", utente.username);
+            operazione_lista_attesa_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
+            break;
+
+          case OP_ADM_APPROVA_PRENOTAZ:
+          case OP_ADM_RIFIUTA_PRENOTAZ:
+            printf("Gestione approvazione/rifiuto prenotazione da: %s\n", utente.username);
+            operazione_gestisci_prenotazione(currentSocketfd, richiesta, mappa_prenotazioni);
+            break;
+
+          case OP_ESCI: { 
+            printf("Operazione di uscita richiesta dal client.\n"); 
+            risposta_header_t risposta_esci = { .esito = ESITO_OK, .operazione = OP_ESCI, .payload_size = 0 };
+            strcpy(risposta_esci.messaggio, "Disconnessione confermata");
+            write(currentSocketfd, &risposta_esci, sizeof(risposta_esci));
+            
+            printf("Chiusura della connessione con il client...\n"); 
+            close(currentSocketfd); 
+            exit(EXIT_SUCCESS); 
+          }
+
+          default: 
+            printf("Operazione non riconosciuta dal server.\n"); 
+            break;
+        }
+      }
+    } else {
+      // Processo padre
+      printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
+      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
+    }
+  }
+}
+</file>
+
 <file path="src/client.c">
 #include <stdio.h>
 #include <stdlib.h>
@@ -1438,14 +1636,15 @@ int main() {
 // Le due funzioni sottostanti rimangono invariate
 // =======================================================
 
-// TODO il nome dev'essere tutto minuscolo
-// TODO aggiustare gli scanf con %valore
+
+
 void loginOrRegistrazione(SocketInfo clientSock, op_cliente_t scelta) {
   richiesta_t richiesta;
   richiesta.operazione = scelta;
   if (scelta != OP_ESCI) {
     printf("Inserisci il tuo username (tutto minuscolo) [Max 10 caratteri]: ");
     scanf("%10s", richiesta.utente.username);  // Aggiunto limite per sicurezza
+    str_tolower(richiesta.utente.username);
     printf("Inserisci la tua password [Max 20 caratteri]: ");
     scanf("%20s", richiesta.utente.password);  // Aggiunto limite per sicurezza
   }
@@ -1585,6 +1784,7 @@ void operazione_salva_prenotazione(int client_sock, richiesta_t richiesta, mappa
     }
 
     // 2. Valida la data e l'orario della prenotazione
+    //FIXME aggiungere nella relazione che suppongo che il cliente inserisca i dati corretti
     if (!valida_data_e_ora(dati_prenotazione.data, dati_prenotazione.ora_inizio, dati_prenotazione.ora_fine, header.messaggio)) {
         header.esito = ESITO_KO;
         write(client_sock, &header, sizeof(header));
@@ -1854,7 +2054,7 @@ static void analizza_prenotazioni_esistenti(mappa_t* mappa, const char* username
         prenotazione_t p;
         while (fread(&p, sizeof(prenotazione_t), 1, file) == 1) {
             if (p.id_prenotazione > max_id) max_id = p.id_prenotazione;
-            if (strcmp(p.utente.username, username) == 0 && p.stato != RIFIUTATA) attive++;
+            if (strcmp(p.utente.username, username) == 0 && p.stato == ATTESA) attive++;
         }
         fclose(file);
     }
@@ -1920,185 +2120,6 @@ static bool salva_prenotazioni_aula(int id_risorsa, const prenotazione_t* prenot
 static bool si_sovrappongono(const prenotazione_t* a, const prenotazione_t* b) {
     if (strcmp(a->data, b->data) != 0) return false;
     return !(strcmp(a->ora_fine, b->ora_inizio) <= 0 || strcmp(a->ora_inizio, b->ora_fine) >= 0);
-}
-</file>
-
-<file path="src/server.c">
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-
-#include "booking_system_struct.h"
-#include "comunicazioneSocket.h"
-#include "gestione_operazioni_server.h"
-#include "debug.h"
-#include "mappa_prenotazioni.h"
-
-static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_num_risorse) {
-    FILE* file = fopen(filename, "rb");
-    if (!file) return NULL;
-
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    rewind(file);
-
-    size_t num_risorse = file_size / sizeof(risorsa_aula_t);
-
-    // Allocazione dinamica + 1 elemento sentinella
-    risorsa_aula_t* risorse = malloc((num_risorse + 1) * sizeof(risorsa_aula_t));
-    if (!risorse) {
-        fclose(file);
-        return NULL;
-    }
-
-    fread(risorse, sizeof(risorsa_aula_t), num_risorse, file);
-    fclose(file);
-
-    // Sentinella di fine array per iterazioni veloci
-    risorse[num_risorse].id_risorsa = -1; 
-
-    if (out_num_risorse != NULL) {
-        *out_num_risorse = num_risorse;
-    }
-
-    return risorse;
-}
-
-static bool init_ram(const char* filename_risorse, 
-                        risorsa_aula_t** out_aule, 
-                        size_t* out_num_risorse, 
-                        mappa_t** out_mappa) {
-    size_t num_aule = 0;
-
-    // 1. Carica le aule dal file in RAM
-    *out_aule = carica_risorse_da_file(filename_risorse, &num_aule);
-    if (*out_aule == NULL) {
-        perror("Errore durante il caricamento del file risorse");
-        return false;
-    }
-
-    // 2. Crea la mappa con il numero esatto (e dinamico) di aule caricate
-    *out_mappa = crea_mappa(*out_aule, num_aule);
-    if (*out_mappa == NULL) {
-        fprintf(stderr, "Errore nella allocazione della mappa prenotazioni.\n");
-        free(*out_aule);
-        *out_aule = NULL;
-        return false;
-    }
-
-    if (out_num_risorse != NULL) {
-        *out_num_risorse = num_aule;
-    }
-
-    return true;
-}
-
-
-
-int main() {
-  printf("Inizio server...\n"); 
-  SocketInfo serverSock = inizializzaSocketServer();
-  struct sockaddr_in clientAddress; 
-  int currentSocketfd;
-  size_t num_aule = 0;
-  mappa_t* mappa_prenotazioni = NULL;
-  risorsa_aula_t* out_aule = NULL;
-  if(init_ram("dati/risorse.bn", &out_aule, &num_aule, &mappa_prenotazioni) == false) {
-      fprintf(stderr, "Errore nell'inizializzazione della RAM.\n");
-      exit(EXIT_FAILURE);
-  }
-
-  signal(SIGCHLD, SIG_IGN);
-  while (1) { 
-    printf("In attesa di connessioni...\n"); 
-    socklen_t clientAddressLength = sizeof(clientAddress); 
-    currentSocketfd = accept(serverSock.socketfd, (struct sockaddr*)&clientAddress, &clientAddressLength); 
-    if (currentSocketfd < 0) { 
-      perror("Errore nell'accept del socket"); 
-      exit(EXIT_FAILURE); 
-    }
-
-    pid_t pid = fork(); 
-    if (pid < 0) { 
-      perror("Errore nella creazione del processo figlio"); 
-      exit(EXIT_FAILURE); 
-    }
-    if (pid == 0) {
-      // Processo figlio
-      close(serverSock.socketfd);  // Chiudiamo il socket del server nel processo figlio
-      printf("Nuova connessione accettata, creando processo figlio...\n"); 
-
-      while (1) {
-        richiesta_t richiesta;
-        if (read(currentSocketfd, &richiesta, sizeof(richiesta)) <= 0) {
-            printf("Client disconnesso.\n");
-            close(currentSocketfd);
-            exit(EXIT_FAILURE);
-        }
-
-        utente_t utente = richiesta.utente; 
-
-        switch (richiesta.operazione) { 
-          case OP_CLI_LOGIN: 
-            printf("Gestione operazione di login...\n"); 
-            operazione_login(currentSocketfd, richiesta);
-            break;
-
-          case OP_CLI_REGISTRAZIONE: 
-            printf("Gestione operazione di registrazione...\n"); 
-            operazione_registrazione(currentSocketfd, richiesta);
-            break;
-
-          case OP_CLI_LISTA_RISORSE: 
-            printf("Richiesta di elenco risorse da: %s\n", utente.username); 
-            operazione_invia_catalogo_aule(currentSocketfd, richiesta, out_aule, num_aule);
-            break;
-
-          case OP_CLI_NUOVA_PRENOTAZ: 
-            printf("Nuova prenotazione richiesta da %s\n", utente.username);
-            operazione_salva_prenotazione(currentSocketfd, richiesta, mappa_prenotazioni);
-            break;
-
-          case OP_CLI_MIE_PRENOTAZ: 
-            printf("Richiesta di visualizzazione prenotazione da: %s\n", utente.username); 
-            operazione_lista_mie_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
-            break;
-
-          case OP_ADM_LISTA_ATTESA:
-            printf("Richiesta elenco di tutte le prenotazioni da: %s\n", utente.username);
-            operazione_lista_attesa_prenotazioni(currentSocketfd, richiesta, mappa_prenotazioni);
-            break;
-
-          case OP_ADM_APPROVA_PRENOTAZ:
-          case OP_ADM_RIFIUTA_PRENOTAZ:
-            printf("Gestione approvazione/rifiuto prenotazione da: %s\n", utente.username);
-            operazione_gestisci_prenotazione(currentSocketfd, richiesta, mappa_prenotazioni);
-            break;
-
-          case OP_ESCI: { 
-            printf("Operazione di uscita richiesta dal client.\n"); 
-            risposta_header_t risposta_esci = { .esito = ESITO_OK, .operazione = OP_ESCI, .payload_size = 0 };
-            strcpy(risposta_esci.messaggio, "Disconnessione confermata");
-            write(currentSocketfd, &risposta_esci, sizeof(risposta_esci));
-            
-            printf("Chiusura della connessione con il client...\n"); 
-            close(currentSocketfd); 
-            exit(EXIT_SUCCESS); 
-          }
-
-          default: 
-            printf("Operazione non riconosciuta dal server.\n"); 
-            break;
-        }
-      }
-    } else {
-      // Processo padre
-      printf("Connessione accettata, processo padre continua ad ascoltare...\n"); 
-      close(currentSocketfd);  // Chiudiamo il socket del client nel processo padre
-    }
-  }
 }
 </file>
 
