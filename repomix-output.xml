@@ -40,14 +40,9 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
-bin/
-  client
-  init
-  server
 include/
   booking_system_struct.h
   comunicazioneSocket.h
-  debug.h
   gestione_lock.h
   gestione_login.h
   gestione_operazioni_client.h
@@ -92,22 +87,6 @@ SocketInfo inizializzaSocketServer();
 SocketInfo inizializzaSocketClient();
 
 #endif
-</file>
-
-<file path="include/debug.h">
-#ifndef DEBUG_H
-#define DEBUG_H
-
-#include <stdio.h>
-
-#ifdef DEBUG
-    // In modalità debug: 1 sola riga pulita con prefisso [DEBUG]
-    #define LOG(fmt, ...) fprintf(stderr, "[DEBUG] " fmt "\n", ##__VA_ARGS__)
-#else
-    #define LOG(fmt, ...) ((void)0)
-#endif
-
-#endif // DEBUG_H
 </file>
 
 <file path="include/gestione_lock.h">
@@ -1078,7 +1057,7 @@ int main() {
 #include "gestione_login.h"
 #include "booking_system_struct.h"
 #include "gestione_lock.h"
-#include "debug.h"
+
 
 #define FILE_LOCK_UTENTI "dati/utenti.lock"
 
@@ -1134,15 +1113,16 @@ bool registraUtente(utente_t* utente) {
     int lock_fd = acquisisci_lock(LOCK_EX, FILE_LOCK_UTENTI);
     if (lock_fd < 0) return false;
 
-    LOG("Controllo se esiste un username simile");
+    printf("Controllo se esiste un username simile");
     if(!controllo_username(utente->username)) {
         if(!verifica_esistenza_file_username(utente->username[0], path, sizeof(path))) {
             crea_path_file_username(path, sizeof(path));
         }
         FILE* file = fopen(path, "ab");
-        size_t written = fwrite(utente, sizeof(utente_t), 1, file);
-        esito = true;
-        fclose(file);
+        if (file != NULL) {
+            esito = (fwrite(utente, sizeof(utente_t), 1, file) == 1);
+            fclose(file);
+        }
     }
 
     rilascia_lock(lock_fd);
@@ -1160,7 +1140,7 @@ static bool controllo_username(const char* username){
         while(fread(utente, sizeof(utente_t), 1, file) == 1){
             if(strcmp(utente->username, username) == 0){
                 esito = true;
-                LOG("USERNAME TROVATO");
+                printf("USERNAME TROVATO");
                 break;
             }
         }
@@ -1173,9 +1153,9 @@ static bool controllo_username(const char* username){
 }
 
 static bool verifica_esistenza_file_username(const char primo_carattere, char* path, size_t path_size) {
-    LOG("verifica esistenza file");
+    printf("verifica esistenza file");
     snprintf(path,path_size, "dati/utenti_%c.bn", primo_carattere);
-    LOG("File da controllare : %s", path);
+    printf("File da controllare : %s\n", path);
     return access(path, F_OK) == 0; // Verifica se il file esiste
 }
 
@@ -1243,7 +1223,7 @@ typedef struct {
     int capienza;               // Es. 50
 } risorsa_aula_t;
 
-//TODO cambiare le impostazioni delle ore
+
 typedef struct {
     int id_prenotazione;
     int id_risorsa;
@@ -1359,7 +1339,6 @@ run-client: client
 #include "booking_system_struct.h"
 #include "comunicazioneSocket.h"
 #include "gestione_operazioni_server.h"
-#include "debug.h"
 #include "mappa_prenotazioni.h"
 
 static risorsa_aula_t* carica_risorse_da_file(const char* filename, size_t* out_num_risorse) {
@@ -1658,7 +1637,7 @@ void str_tolower(char *str) {
 #include <time.h>
 #include <unistd.h>
 
-#include "debug.h"
+
 #include "gestione_lock.h"
 #include "gestione_login.h"
 #include "mappa_prenotazioni.h"
@@ -1692,13 +1671,13 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
   header.operazione = OP_CLI_LOGIN;
 
   printf("Richiesta di login ricevuta: username=%s, password=%s\n",
-         richiesta.utente.username, richiesta.utente.password);  //
+         richiesta.utente.username, richiesta.utente.password);  
   utente_t* utente = verificaCredenziali(richiesta.utente.username,
-                                         richiesta.utente.password);  //
+                                         richiesta.utente.password);  
 
   if (utente != NULL) {
-    header.esito = ESITO_OK;                                    //
-    strcpy(header.messaggio, "Login effettuato con successo");  //
+    header.esito = ESITO_OK;                                    
+    strcpy(header.messaggio, "Login effettuato con successo");  
     header.num_elementi = 1;
     header.payload_size = sizeof(utente_t);
 
@@ -1708,8 +1687,8 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
 
     free(utente);  // Libera la memoria allocata per l'utente
   } else {
-    header.esito = ESITO_KO;                                 //
-    strcpy(header.messaggio, "USERNAME o PASSWORD errati");  //
+    header.esito = ESITO_KO;                                 
+    strcpy(header.messaggio, "USERNAME o PASSWORD errati");  
     header.num_elementi = 0;
     header.payload_size = 0;  // Nessun payload
 
@@ -1728,27 +1707,27 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
       "Richiesta di registrazione ricevuta: username=%s, password=%s, "
       "isAdmin=%d\n",
       richiesta.utente.username, richiesta.utente.password,
-      richiesta.utente.isAdmin);  //
+      richiesta.utente.isAdmin);  
   utente_t* nuovo_utente =
       crea_utente(richiesta.utente.username, richiesta.utente.password,
-                  richiesta.utente.isAdmin);  //
+                  richiesta.utente.isAdmin);  
 
-  LOG("Fase di controllo utente");                           //
-  if (nuovo_utente != NULL) {                                //
-    if (registraUtente(nuovo_utente)) {                      //
-      LOG("Non esiste");                                     //
-      header.esito = ESITO_OK;                               //
-      strcpy(header.messaggio, "Registrazione effettuata");  //
+  printf("Fase di controllo utente");                           
+  if (nuovo_utente != NULL) {                                
+    if (registraUtente(nuovo_utente)) {                      
+      printf("Non esiste");                                     
+      header.esito = ESITO_OK;                               
+      strcpy(header.messaggio, "Registrazione effettuata");  
     } else {
-      LOG("esiste username");                                                //
-      header.esito = ESITO_KO;                                               //
-      strcpy(header.messaggio, "Registrazione negata, username esistente");  //
+      printf("esiste username");                                                
+      header.esito = ESITO_KO;                                               
+      strcpy(header.messaggio, "Registrazione negata, username esistente");  
     }
     free(nuovo_utente);  // Libera la memoria allocata per il nuovo utente
   } else {
-    header.esito = ESITO_KO;  //
+    header.esito = ESITO_KO;  
     strcpy(header.messaggio, "Errore interno server");
-    printf("Errore nella creazione dell'utente.\n");  //
+    printf("Errore nella creazione dell'utente.\n");  
   }
 
   // Manda l'esito

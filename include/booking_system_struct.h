@@ -3,7 +3,6 @@
 
 #define MAX_USER_LEN  10
 #define MAX_PASS_LEN  20
-#define ORE 12
 #define MAX_PRENOTAZIONI_ATTIVE 3
 
 #include <stdbool.h>
@@ -54,7 +53,7 @@ typedef struct {
     int capienza;               // Es. 50
 } risorsa_aula_t;
 
-//TODO cambiare le impostazioni delle ore
+
 typedef struct {
     int id_prenotazione;
     int id_risorsa;
@@ -93,7 +92,7 @@ typedef struct {
 typedef struct {
     esito_t esito;              // ESITO_OK o ESITO_KO
     op_cliente_t operazione;    // Riferimento all'operazione
-    char messaggio[96];         // Es. "Login effettuato" o "Password errata"
+    char messaggio[96];         
     int num_elementi;           // Quanti elementi ci sono dopo (es. 7 aule, 1 utente, 0 se errore)
     size_t payload_size;        // Dimensione esatta in BYTE del payload che segue
 } risposta_header_t;

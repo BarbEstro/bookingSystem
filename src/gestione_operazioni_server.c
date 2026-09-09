@@ -43,13 +43,13 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
   header.operazione = OP_CLI_LOGIN;
 
   printf("Richiesta di login ricevuta: username=%s, password=%s\n",
-         richiesta.utente.username, richiesta.utente.password);  //
+         richiesta.utente.username, richiesta.utente.password);  
   utente_t* utente = verificaCredenziali(richiesta.utente.username,
-                                         richiesta.utente.password);  //
+                                         richiesta.utente.password);  
 
   if (utente != NULL) {
-    header.esito = ESITO_OK;                                    //
-    strcpy(header.messaggio, "Login effettuato con successo");  //
+    header.esito = ESITO_OK;                                    
+    strcpy(header.messaggio, "Login effettuato con successo");  
     header.num_elementi = 1;
     header.payload_size = sizeof(utente_t);
 
@@ -59,8 +59,8 @@ void operazione_login(int client_sock, richiesta_t richiesta) {
 
     free(utente);  // Libera la memoria allocata per l'utente
   } else {
-    header.esito = ESITO_KO;                                 //
-    strcpy(header.messaggio, "USERNAME o PASSWORD errati");  //
+    header.esito = ESITO_KO;                                 
+    strcpy(header.messaggio, "USERNAME o PASSWORD errati");  
     header.num_elementi = 0;
     header.payload_size = 0;  // Nessun payload
 
@@ -79,27 +79,27 @@ void operazione_registrazione(int client_sock, richiesta_t richiesta) {
       "Richiesta di registrazione ricevuta: username=%s, password=%s, "
       "isAdmin=%d\n",
       richiesta.utente.username, richiesta.utente.password,
-      richiesta.utente.isAdmin);  //
+      richiesta.utente.isAdmin);  
   utente_t* nuovo_utente =
       crea_utente(richiesta.utente.username, richiesta.utente.password,
-                  richiesta.utente.isAdmin);  //
+                  richiesta.utente.isAdmin);  
 
-  printf("Fase di controllo utente");                           //
-  if (nuovo_utente != NULL) {                                //
-    if (registraUtente(nuovo_utente)) {                      //
-      printf("Non esiste");                                     //
-      header.esito = ESITO_OK;                               //
-      strcpy(header.messaggio, "Registrazione effettuata");  //
+  printf("Fase di controllo utente");                           
+  if (nuovo_utente != NULL) {                                
+    if (registraUtente(nuovo_utente)) {                      
+      printf("Non esiste");                                     
+      header.esito = ESITO_OK;                               
+      strcpy(header.messaggio, "Registrazione effettuata");  
     } else {
-      printf("esiste username");                                                //
-      header.esito = ESITO_KO;                                               //
-      strcpy(header.messaggio, "Registrazione negata, username esistente");  //
+      printf("esiste username");                                                
+      header.esito = ESITO_KO;                                               
+      strcpy(header.messaggio, "Registrazione negata, username esistente");  
     }
     free(nuovo_utente);  // Libera la memoria allocata per il nuovo utente
   } else {
-    header.esito = ESITO_KO;  //
+    header.esito = ESITO_KO;  
     strcpy(header.messaggio, "Errore interno server");
-    printf("Errore nella creazione dell'utente.\n");  //
+    printf("Errore nella creazione dell'utente.\n");  
   }
 
   // Manda l'esito
